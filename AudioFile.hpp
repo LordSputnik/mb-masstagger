@@ -17,8 +17,10 @@
  * along with MusicBrainz MassTagger.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string>
-#include <boost/filesystem.hpp>
+#ifndef _MBMT_AUDIOFILE_H_
+#define _MBMT_AUDIOFILE_H_
+
+#include "pch.hpp"
 
 namespace MassTagger
 {
@@ -53,3 +55,5 @@ namespace MassTagger
         static AudioFileType GetAudioFileType(const boost::filesystem::path & path);
     };
 }
+
+#endif // _MBMT_AUDIOFILE_H_
