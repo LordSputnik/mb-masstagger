@@ -17,62 +17,21 @@
  * along with MusicBrainz MassTagger.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <iostream>
-#include <taglib/taglib.h>
-#include <taglib/fileref.h>
-#include <taglib/tpropertymap.h>
+#include "pch.hpp"
+#include "App.hpp"
 
-#include <musicbrainz5/Query.h>
-#include <musicbrainz5/Disc.h>
-#include <musicbrainz5/Release.h>
-#include <musicbrainz5/Recording.h>
-
-#include <boost/filesystem.hpp>
-#include <boost/version.hpp>
-#include <list>
-#include <vector>
-#include <memory>
-#include "AudioFile.hpp"
 using namespace std;
 
-list<std::shared_ptr<MassTagger::AudioFile>> music_files;
-
-uint32_t num_mp3s = 0, num_flacs = 0, num_oggs = 0;
-
-void ScanDirectory(const boost::filesystem::path & input_dir)
+int main(int argc, char* argv[])
 {
-    boost::filesystem::directory_iterator it(input_dir);
-    boost::filesystem::directory_iterator end;
-    for(;it != end; ++it)
-    {
-        if(is_directory(*it) == true)
-        {
-            ScanDirectory(*it);
-            continue;
-        }
+  if(MassTagger::App::Init(argc,argv) != 0)
+  {
+    return MassTagger::App::Destroy();
+  }
 
-        if(is_regular_file(*it) == false)
-            continue;
+  MassTagger::App::Run();
 
-        MassTagger::AudioFileType type = MassTagger::AudioFile::GetAudioFileType(*it);
-
-        if(type == MassTagger::AUDIO_UNKNOWN)
-            continue;
-
-        if(type == MassTagger::AUDIO_FLAC)
-            ++num_flacs;
-        else if(type == MassTagger::AUDIO_MP3)
-            ++num_mp3s;
-        else if (type == MassTagger::AUDIO_VORBIS)
-            ++num_oggs;
-
-        std::shared_ptr<MassTagger::AudioFile> ptr (new MassTagger::AudioFile(*it,type));
-        music_files.push_back(ptr);
-    }
-}
-
-int main()
-{
+  return MassTagger::App::Destroy();
     /* So, what stuff regularly needs updating in my library? Everything? No...
     * Recording
     *   Artist Name
@@ -88,16 +47,6 @@ int main()
     *   Composer
     */
 
-    boost::filesystem::path root_dir ("./");
-    std::cout << "Boost version: " << BOOST_LIB_VERSION << std::endl;
-    if(exists(root_dir))
-    {
-        cout << "This should always exist, probably." << endl;
-        ScanDirectory(root_dir);
-
-    }
-
-    printf("Found %u MP3s, %u OGGs and %u FLACs.\n",num_mp3s,num_oggs,num_flacs);
 
     /*
     TagLib::FileRef f("Spirits.flac");
@@ -129,6 +78,4 @@ int main()
     }
 
     cout << artist << endl;*/
-    printf("Exited gracefully!");
-    return 0;
 }

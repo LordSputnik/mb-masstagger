@@ -17,39 +17,19 @@
  * along with MusicBrainz MassTagger.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string>
-#include <boost/filesystem.hpp>
+#ifndef _MBMT_APP_H_
+#define _MBMT_APP_H_
 
 namespace MassTagger
 {
-    enum AudioFileType
-    {
-        AUDIO_FLAC = 0,
-        AUDIO_MP3,
-        AUDIO_VORBIS,
-        AUDIO_UNKNOWN
-    };
+  namespace App
+  {
+    int Init(int argc, char* argv[]);
 
-    class AudioFile
-    {
-        private:
-        AudioFileType type_;
-        std::string path_;
-        std::string recording_uuid_;
+    void Run();
 
-        public:
-        AudioFile(const boost::filesystem::path & path, AudioFileType type = AUDIO_UNKNOWN);
-
-        uint8_t type() const
-        {
-            return type_;
-        }
-
-        std::string & path()
-        {
-            return path_;
-        }
-
-        static AudioFileType GetAudioFileType(const boost::filesystem::path & path);
-    };
+    int Destroy();
+  }
 }
+
+#endif // _MBMT_APP_H_
