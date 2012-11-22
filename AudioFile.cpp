@@ -57,4 +57,8 @@ namespace MassTagger
         return AUDIO_UNKNOWN;
     }
 
+    void AudioFile::GetTags()
+    {
+
+    }
 }

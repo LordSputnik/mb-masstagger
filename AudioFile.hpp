@@ -34,6 +34,11 @@ namespace MassTagger
 
     class AudioFile
     {
+        struct Tags
+        {
+          //Artist, ids, etc. go here.
+        };
+
         private:
         AudioFileType type_;
         std::string path_;
@@ -41,7 +46,7 @@ namespace MassTagger
 
         public:
         AudioFile(const boost::filesystem::path & path, AudioFileType type = AUDIO_UNKNOWN);
-
+        void GetTags();
         uint8_t type() const
         {
             return type_;
