@@ -49,9 +49,8 @@ int main(int argc, char* argv[])
 
 
     /*
-    TagLib::FileRef f("Spirits.flac");
-    TagLib::String artist = f.tag()->title(); // artist == "Frank Zappa"
-    TagLib::PropertyMap pmap = f.file()->properties();
+     // artist == "Frank Zappa"
+
 
     TagLib::PropertyMap::Iterator it = pmap.begin();
     auto end = pmap.end();

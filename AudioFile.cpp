@@ -18,6 +18,7 @@
  */
 
 #include "AudioFile.hpp"
+#include "App.hpp"
 
 namespace MassTagger
 {
@@ -28,6 +29,8 @@ namespace MassTagger
             type_ = GetAudioFileType(path);
         else
             type_ = type;
+
+        GetTags();
     }
 
     AudioFileType AudioFile::GetAudioFileType(const boost::filesystem::path & path)
@@ -59,6 +62,31 @@ namespace MassTagger
 
     void AudioFile::GetTags()
     {
+      TagLib::FileRef f(path_.c_str());
+      stored_tags_.artist_name_ = f.tag()->artist();
+      stored_tags_.release_name_ = f.tag()->album();
+      stored_tags_.title_ = f.tag()->title();
+
+      TagLib::PropertyMap pmap = f.file()->properties();
+
+
+      auto it = pmap.find("MUSICBRAINZ_TRACKID");
+      if(it != pmap.end())
+        stored_tags_.recording_uuid_ = it->second[0].to8Bit();
+
+      it = pmap.find("MUSICBRAINZ_ALBUMID");
+      if(it != pmap.end())
+      {
+        stored_tags_.release_uuid_ = it->second[0].to8Bit();
+        App::LookupReleaseID(stored_tags_.release_uuid_);
+      }
+
+
+      it = pmap.find("MUSICBRAINZ_ARTISTID");
+      if(it != pmap.end())
+        stored_tags_.artist_uuid_ = it->second[0].to8Bit();
+
+      printf("--------\n%s\n%s\n%s\n%s\n%s\n%s\n",stored_tags_.artist_name_.toCString(),stored_tags_.release_name_.toCString(),stored_tags_.title_.toCString(),stored_tags_.artist_uuid_.c_str(),stored_tags_.recording_uuid_.c_str(),stored_tags_.release_uuid_.c_str());
 
     }
 }

@@ -37,12 +37,22 @@ namespace MassTagger
         struct Tags
         {
           //Artist, ids, etc. go here.
+          //Unicode Strings
+          TagLib::String title_;
+          TagLib::String release_name_;
+          TagLib::String artist_name_;
+
+          //ASCII strings
+          std::string recording_uuid_;
+          std::string release_uuid_;
+          std::string artist_uuid_;
         };
 
         private:
         AudioFileType type_;
         std::string path_;
-        std::string recording_uuid_;
+        Tags retrieved_tags_;
+        Tags stored_tags_;
 
         public:
         AudioFile(const boost::filesystem::path & path, AudioFileType type = AUDIO_UNKNOWN);

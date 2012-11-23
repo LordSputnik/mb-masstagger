@@ -29,6 +29,8 @@ namespace MassTagger
     void Run();
 
     int Destroy();
+
+    MusicBrainz5::CRelease* LookupReleaseID(const std::string & uuid);
   }
 }
 

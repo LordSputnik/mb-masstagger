@@ -32,6 +32,7 @@ namespace MassTagger
       int result_;
       uint32_t num_mp3s = 0, num_flacs = 0, num_oggs = 0;
       std::list< std::shared_ptr<AudioFile> > music_files;
+      std::map< std::string, std::shared_ptr<MusicBrainz5::CRelease> > release_map_;
 
       void ScanDirectory(const boost::filesystem::path & input_dir)
       {
@@ -93,6 +94,33 @@ namespace MassTagger
     int Destroy()
     {
       return result_;
+    }
+
+    MusicBrainz5::CRelease* LookupReleaseID(const std::string & uuid)
+    {
+      auto it = release_map_.find(uuid);
+
+      if(it != release_map_.end())
+        return it->second.get();
+
+      MusicBrainz5::CQuery Query("masstagger-0.1");
+
+      MusicBrainz5::CQuery::tParamMap Params;
+      Params["inc"]="recordings";
+
+      MusicBrainz5::CMetadata Metadata = Query.Query("release",uuid,"",Params);
+      if (Metadata.Release())
+      {
+              MusicBrainz5::CRelease *FullRelease=Metadata.Release();
+
+              std::cout << *FullRelease << std::endl;
+
+              std::shared_ptr<MusicBrainz5::CRelease> ptr (Metadata.Release()->Clone()); // clone, so we get free of the auto deletion.
+              release_map_[uuid] = ptr;
+              return FullRelease;
+      }
+      return nullptr;
+
     }
   }
 }
