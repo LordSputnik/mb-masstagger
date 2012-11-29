@@ -24,12 +24,16 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
+  FILE * err_file = freopen("stderr.txt", "w", stderr);
+
   if(MassTagger::App::Init(argc,argv) != 0)
   {
     return MassTagger::App::Destroy();
   }
 
   MassTagger::App::Run();
+
+  fclose(err_file);
 
   return MassTagger::App::Destroy();
     /* So, what stuff regularly needs updating in my library? Everything? No...

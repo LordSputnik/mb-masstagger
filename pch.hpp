@@ -23,9 +23,11 @@
 //STD C++
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <vector>
 #include <list>
 #include <memory>
+#include <ctime>
 
 //Boost C++
 #include <boost/version.hpp>
@@ -35,12 +37,18 @@
 #include <taglib/taglib.h>
 #include <taglib/fileref.h>
 #include <taglib/tpropertymap.h>
+#include <taglib/id3v2tag.h>
+#include <taglib/id3v2header.h>
 
 
 // MusicBrainz Includes
 #include <musicbrainz5/Query.h>
 #include <musicbrainz5/Disc.h>
 #include <musicbrainz5/Release.h>
+#include <musicbrainz5/ReleaseGroup.h>
 #include <musicbrainz5/Recording.h>
+#include <musicbrainz5/Track.h>
+#include <musicbrainz5/MediumList.h>
+#include <musicbrainz5/Medium.h>
 
 #endif // _MBMT_PCH_H_

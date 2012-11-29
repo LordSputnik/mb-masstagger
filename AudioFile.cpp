@@ -20,8 +20,31 @@
 #include "AudioFile.hpp"
 #include "App.hpp"
 
+using std::cout;
+using std::endl;
+
 namespace MassTagger
 {
+    bool AudioFile::Tags::SyncTag(const std::string & tag_name, const std::string & value)
+    {
+      if((*this)(tag_name) == value)
+        return true;
+
+      cout << tag_name << ": " << (*this)(tag_name) << "->" << value << endl;
+      (*this)(tag_name) = value;
+      return false;
+    }
+
+    bool AudioFile::Tags::SyncTag(const std::string & tag_name, int value)
+    {
+      if((*this)[tag_name] == value)
+        return true;
+
+      cout << tag_name << ": " << (*this)[tag_name] << "->" << value << endl;
+      (*this)[tag_name] = value;
+      return false;
+    }
+
     AudioFile::AudioFile(const boost::filesystem::path & path, AudioFileType type)
         : path_(path.native())
     {
@@ -63,30 +86,60 @@ namespace MassTagger
     void AudioFile::GetTags()
     {
       TagLib::FileRef f(path_.c_str());
-      stored_tags_.artist_name_ = f.tag()->artist();
-      stored_tags_.release_name_ = f.tag()->album();
-      stored_tags_.title_ = f.tag()->title();
+      stored_tags_("ARTIST") = f.tag()->artist().to8Bit(true);
+      stored_tags_("RELEASE") = f.tag()->album().to8Bit(true);
+      stored_tags_("TITLE") = f.tag()->title().to8Bit(true);
+      stored_tags_["TRACK_INDEX"] = f.tag()->track() - 1;
 
       TagLib::PropertyMap pmap = f.file()->properties();
 
-
-      auto it = pmap.find("MUSICBRAINZ_TRACKID");
-      if(it != pmap.end())
-        stored_tags_.recording_uuid_ = it->second[0].to8Bit();
-
-      it = pmap.find("MUSICBRAINZ_ALBUMID");
-      if(it != pmap.end())
+      TagLib::PropertyMap::Iterator it = pmap.begin(), end = pmap.end();
+      for(; it != end; ++it)
       {
-        stored_tags_.release_uuid_ = it->second[0].to8Bit();
-        App::LookupReleaseID(stored_tags_.release_uuid_);
+        if(it->first == "MUSICBRAINZ_TRACKID")
+          stored_tags_("REC_ID") = it->second[0].to8Bit();
+        else
+        if(it->first == "MUSICBRAINZ_ALBUMID")
+          stored_tags_("REL_ID") = it->second[0].to8Bit();
+        else
+        if(it->first == "MUSICBRAINZ_ARTISTID")
+          stored_tags_("ARTIST_ID") = it->second[0].to8Bit();
+        else
+        if(it->first == "DATE")
+          stored_tags_("DATE") = it->second[0].to8Bit();
+        else
+        if(it->first == "ORIGINALDATE")
+          stored_tags_("ORIGINALDATE") = it->second[0].to8Bit();
+        else
+        if(it->first == "DISCNUMBER")
+        {
+          std::stringstream ss(it->second[0].to8Bit());
+          ss >> stored_tags_["DISC_INDEX"];
+          --stored_tags_["DISC_INDEX"]; //1->X -> 0->X-1
+        }
       }
 
+      CheckTags();
+    }
 
-      it = pmap.find("MUSICBRAINZ_ARTISTID");
-      if(it != pmap.end())
-        stored_tags_.artist_uuid_ = it->second[0].to8Bit();
+    void AudioFile::CheckTags()
+    {
+      if(stored_tags_("REL_ID").empty() == true)
+        return;
 
-      printf("--------\n%s\n%s\n%s\n%s\n%s\n%s\n",stored_tags_.artist_name_.toCString(),stored_tags_.release_name_.toCString(),stored_tags_.title_.toCString(),stored_tags_.artist_uuid_.c_str(),stored_tags_.recording_uuid_.c_str(),stored_tags_.release_uuid_.c_str());
+      MusicBrainz5::CRelease* release = App::LookupReleaseID(stored_tags_("REL_ID"));
 
+      if(release == nullptr)
+        return;
+
+      MusicBrainz5::CTrack* track = release->MediumList()->Item(stored_tags_["DISC_INDEX"])->TrackList()->Item(stored_tags_["TRACK_INDEX"]);
+
+      bool changed = false;
+
+      stored_tags_.SyncTag("RELEASE", release->Title());
+      stored_tags_.SyncTag("TITLE", track->Recording()->Title());
+      stored_tags_.SyncTag("DATE",release->Date());
+      stored_tags_.SyncTag("ORIGINALDATE",release->ReleaseGroup()->FirstReleaseDate());
+      stored_tags_.SyncTag("REC_ID",track->Recording()->ID());
     }
 }

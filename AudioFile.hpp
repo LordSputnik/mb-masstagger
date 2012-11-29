@@ -36,16 +36,23 @@ namespace MassTagger
     {
         struct Tags
         {
-          //Artist, ids, etc. go here.
-          //Unicode Strings
-          TagLib::String title_;
-          TagLib::String release_name_;
-          TagLib::String artist_name_;
+          std::map<std::string, std::string> tag_map;
+          std::map<std::string, int> int_tag_map;
 
-          //ASCII strings
-          std::string recording_uuid_;
-          std::string release_uuid_;
-          std::string artist_uuid_;
+          //Artist, ids, etc. go here.
+
+          std::string & operator() (const std::string & index)
+          {
+            return tag_map[index];
+          }
+
+          int & operator[] (const std::string & index)
+          {
+            return int_tag_map[index];
+          }
+
+          bool SyncTag(const std::string & tag_name, const std::string & value);
+          bool SyncTag(const std::string & tag_name, int value);
         };
 
         private:
@@ -56,7 +63,10 @@ namespace MassTagger
 
         public:
         AudioFile(const boost::filesystem::path & path, AudioFileType type = AUDIO_UNKNOWN);
+
         void GetTags();
+        void CheckTags();
+
         uint8_t type() const
         {
             return type_;
