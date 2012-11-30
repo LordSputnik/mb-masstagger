@@ -8,7 +8,8 @@ import struct
 import base64
 from collections import defaultdict
 from collections import deque
-import musicbrainz2.webservice as ws
+import musicbrainz2.webservice
+import musicbrainzngs as ws
 
 num_flacs = num_mp3s = num_oggs = num_current_songs = num_processed_songs = 0
 albums_fetch_queue = deque()
@@ -40,7 +41,9 @@ e.g.: "YYYY-00-00" -> "YYYY"
             date.append(num)
     return ("", "%04d", "%04d-%02d", "%04d-%02d-%02d")[len(date)] % tuple(date)
 
-q = ws.Query(None,ws.WebService,"masstagger-py-0.1")
+ws.set_rate_limit(False) #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
+ws.set_useragent("mb-masstagger","0.1","ben.sput@gmail.com")
+q = musicbrainz2.webservice.Query(None,musicbrainz2.webservice.WebService,"masstagger-py-0.1")
 last_time = 0
 
 def PackageCoverArt(image_content):
@@ -48,7 +51,7 @@ def PackageCoverArt(image_content):
 
     image_info = struct.unpack(">xxxxBHHB",image_content[pos:pos+10])
 
-    
+
     print "Image Size: " + str(len(image_content)) + " bytes"
     print "Sample Precision: " + str(image_info[0])
     print "Image Height: " + str(image_info[1])
@@ -56,36 +59,36 @@ def PackageCoverArt(image_content):
     print "Number of components: " + str(image_info[3])
     print "Bits per Pixel: " + str(image_info[0]*image_info[3])
     return image_info[0],image_info[1],image_info[2],image_info[3],image_content
-    
+
 
 def FetchNextRelease():
     global last_time
     if (time.time() - last_time) < 1:
         return None
-        
+
     last_time = time.time()
     if len(albums_fetch_queue) > 0:
         release_id = albums_fetch_queue.popleft()
         print ("Fetching: |" + release_id + "| at time: {:.0f}.".format(time.time()))
         try:
             albums[release_id] = q.getReleaseById(release_id)
-        except ws.WebServiceError as detail:
+        except musicbrainz2.webservice.WebServiceError as detail:
             print ("Web Service Error: " + str(detail))
             return None
-        
+
         try:
             cover = urllib2.urlopen("http://coverartarchive.org/release/"+release_id+"/front-500",None,10)
         except urllib2.HTTPError:
             print "No cover art exists for "+release_id
             cover_art_list[release_id] = None
-        else:    
+        else:
             cover_art_list[release_id] = PackageCoverArt(cover.read())
-            
+
         print ("Fetched " + albums[release_id].getTitle())
         return release_id
     else:
         return None
-        
+
 def RequestNextRelease(release_id):
     if release_id in albums:
         return release_id
@@ -106,7 +109,7 @@ def SyncFLACMetaData(song,release_id):
 
     tags = {}
     tags.setdefault(u"albumartist", []).append(release.) #And here I decided to integrate into picard.
-    
+
     cover_art = cover_art_list[release_id]
     if cover_art != None:
         song.clear_pictures();
@@ -127,7 +130,7 @@ def SyncMetadata(song,release_id):
         return
 
     num_processed_songs += 1
-        
+
     if "audio/mp3" in song.mime:
         num_mp3s += 1
         SyncMP3MetaData(song,release_id)
@@ -144,7 +147,7 @@ def SyncMetadata(song,release_id):
         print (str(song.mime))
 
     song.save()
-    
+
     return
 
 ###############################################
@@ -158,7 +161,7 @@ while num_albums != last_num_albums:
         for filename in filenames:
             if (num_current_songs > 1000) or (len(cover_art_list) > 100):
                 no_new_albums = True
-                
+
             fetched_release = FetchNextRelease()
             if fetched_release != None:
                 for s in songs[fetched_release]:
@@ -166,7 +169,7 @@ while num_albums != last_num_albums:
                 num_current_songs -= len(songs[fetched_release])
                 print ("Pass " + str(num_passes) + ": " + str(num_current_songs) + " songs remaining to process and " + str(num_processed_songs) + " processed.")
                 del songs[fetched_release][:] #Clear the processed songs from this album
-                
+
             release_id = None
             audio = None
             if filename[-3:] == "mp3":
@@ -204,7 +207,7 @@ while num_albums != last_num_albums:
                 else:
                     if str(dirname+"/"+filename) not in skipped_files:
                         skipped_files.append(str(dirname+"/"+filename))
-            
+
                 print audio.pprint()
 
             if release_id != None:
@@ -231,12 +234,12 @@ while num_albums != last_num_albums:
     print ("Noneing albums")
     for key in albums.iterkeys():
         albums[key] = None
-       
+
 
     num_albums = len(albums)
     no_new_albums = False
     print ("Albums processed: " + str(num_albums) + " Last Album Total: " + str(last_num_albums))
-        
+
 
 print ("Checked {} MP3s, {} OGGs and {} FLACs.".format(num_mp3s, num_oggs, num_flacs))
 if len(skipped_files) > 0:
