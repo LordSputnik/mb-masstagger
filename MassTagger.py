@@ -191,11 +191,36 @@ def SyncFLACMetaData(song,release_id):
         song.add_picture(picture)
 
     song.update(tags)
+    song.save()
 
+    os.rename(song.filename,"{:0>2}. {}{}".format(song[u"tracknumber"][0],song[u"title"][0],".flac"))
+    
     print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
+    
     return
 
 def SyncVorbisMetaData(song,release_id):
+    tags = GetVorbisCommentMetadata(song,release_id)
+
+    cover_art = cover_art_list[release_id]
+    if cover_art != None:
+        if song.has_key(u"METADATA_BLOCK_PICTURE"):
+            song[u"METADATA_BLOCK_PICTURE"] = []
+        picture = mutagen.flac.Picture()
+        picture.data = cover_art[4]
+        picture.mime = "image/jpeg"
+        picture.desc = ""
+        picture.type = 3
+        tags.setdefault(u"METADATA_BLOCK_PICTURE", []).append(base64.standard_b64encode(picture.write()))
+
+    song.update(tags)
+    song.save()
+
+    os.rename(song.filename,"{:0>2}. {}{}".format(song[u"tracknumber"][0],song[u"title"][0],".ogg"))
+
+    print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
+
+    
     return
 
 def SyncMetadata(song,release_id):
@@ -220,7 +245,7 @@ def SyncMetadata(song,release_id):
     else:
         print (str(song.mime))
 
-    song.save()
+    
 
     return
 
@@ -251,7 +276,7 @@ while num_albums != last_num_albums:
                 for s in songs[fetched_release]:
                     SyncMetadata(s,fetched_release)
                 num_current_songs -= len(songs[fetched_release])
-                print ("Pass " + str(num_passes) + ": " + str(num_current_songs) + " songs remaining to process and " + str(num_processed_songs) + " processed.")
+                print ("Pass {}: {} songs remaining to process and {}/{} processed.".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
                 del songs[fetched_release][:] #Clear the processed songs from this album
 
             release_id = None
@@ -281,8 +306,6 @@ while num_albums != last_num_albums:
                         if str(dirname+"/"+filename) not in skipped_files:
                             skipped_files.append(str(dirname+"/"+filename))
 
-                    if audio.has_key("metadata_block_picture"):
-                        print "Len: "+str(len(audio['metadata_block_picture']))
     #            print audio.pprint()
             elif filename[-3:] == "ogg":
                 audio = mutagen.oggvorbis.OggVorbis(dirname+"/"+filename)
@@ -292,7 +315,7 @@ while num_albums != last_num_albums:
                     if str(dirname+"/"+filename) not in skipped_files:
                         skipped_files.append(str(dirname+"/"+filename))
 
-                print audio.pprint()
+#                print audio.pprint()
 
             if release_id != None:
                 if (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums_fetch_queue)):
@@ -310,7 +333,7 @@ while num_albums != last_num_albums:
             for s in songs[fetched_release]:
                 SyncMetadata(s,fetched_release)
             num_current_songs -= len(songs[fetched_release])
-            print ("Pass " + str(num_passes) + ": " + str(num_current_songs) + " songs remaining to process and " + str(num_processed_songs) + " processed.")
+            print ("Pass {}: {} songs remaining to process and {}/{} processed.".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
             del songs[fetched_release][:] #Clear the processed songs from this album
             albums[fetched_release] = None
 
