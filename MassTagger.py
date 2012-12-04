@@ -45,25 +45,26 @@ no_new_albums = False
 song_ids = list()
 cover_art_list = {}
 
-ValidFileTypes = [\
-".flac",\
-".ogg",\
-".mp3",\
+ValidFileTypes = [
+    ".flac",
+    ".ogg",
+    ".mp3",
 ]
 
-VorbisReleaseTags = {\
-"artist-credit-phrase":u"albumartist",\
-"asin":u"asin",\
-"title":u"album",\
-"barcode":u"barcode",\
-"date":u"date",\
-"country":u"releasecountry",\
+VorbisReleaseTags = {
+    "artist-credit-phrase":"albumartist",
+    "asin":"asin",
+    "title":"album",
+    "barcode":"barcode",
+    "date":"date",
+    "country":"releasecountry",
 }
 
-VorbisRecordingTags = {\
-"artist-credit-phrase":u"artist",\
-"title":u"title",\
+VorbisRecordingTags = {
+    "artist-credit-phrase":"artist",
+    "title":"title",
 }
+
 
 def PrintHeader():
     print ("-------------------------------------------------")
@@ -159,12 +160,12 @@ def GetVorbisCommentMetadata(song, release_id):
                 else: #join phrase
                     aartist_sort_name += c
                 i ^= 1
-            metadata.setdefault(u"albumartistsort", []).append(aartist_sort_name)
+            metadata.setdefault("albumartistsort", []).append(aartist_sort_name)
         elif key == "status":
-            metadata.setdefault(u"releasestatus", []).append(value.lower())
+            metadata.setdefault("releasestatus", []).append(value.lower())
         elif key == "release-group":
-            metadata.setdefault(u"originaldate", []).append(value["first-release-date"])
-            metadata.setdefault(u"releasetype", []).append(value["type"].lower())
+            metadata.setdefault("originaldate", []).append(value["first-release-date"])
+            metadata.setdefault("releasetype", []).append(value["type"].lower())
 
     for key,value in recording.items():
         if VorbisRecordingTags.has_key(key):
@@ -178,7 +179,7 @@ def GetVorbisCommentMetadata(song, release_id):
                 else: #join phrase
                     artist_sort_name += c
                 i ^= 1
-            metadata.setdefault(u"artistsort", []).append(artist_sort_name)
+            metadata.setdefault("artistsort", []).append(artist_sort_name)
 
     return metadata
 
@@ -186,7 +187,11 @@ def SyncMP3MetaData(song,release_id):
     return
 
 def SyncFLACMetaData(song,release_id):
-    tags = GetVorbisCommentMetadata(song,release_id)
+    metadata = GetVorbisCommentMetadata(song,release_id)
+    tags = {}
+    
+    for key,value in metadata.items():
+        tags[key.upper().encode("utf-8")] = value
 
     cover_art = cover_art_list[release_id]
     if cover_art != None:
@@ -208,7 +213,11 @@ def SyncFLACMetaData(song,release_id):
     return
 
 def SyncVorbisMetaData(song,release_id):
-    tags = GetVorbisCommentMetadata(song,release_id)
+    metadata = GetVorbisCommentMetadata(song,release_id)
+    tags = {}
+    
+    for key,value in metadata.items():
+        tags[key.upper().encode("utf-8")] = value
 
     cover_art = cover_art_list[release_id]
     if cover_art != None:
