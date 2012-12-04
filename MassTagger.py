@@ -25,22 +25,31 @@ import struct
 import base64
 from collections import defaultdict
 from collections import deque
-import musicbrainz2.webservice
 import musicbrainzngs as ws
-from utils import *
 import json
 
+from utils import *
+
 num_flacs = num_mp3s = num_oggs = num_current_songs = num_processed_songs = num_total_songs = 0
+
 albums_fetch_queue = deque()
 albums = {}
 songs = defaultdict(list)
 skipped_files = list()
-last_num_albums = None
-num_albums = 0
 num_passes = 0
+
+num_albums = 0
+last_num_albums = None
 no_new_albums = False
+
 song_ids = list()
 cover_art_list = {}
+
+ValidFileTypes = [\
+".flac",\
+".ogg",\
+".mp3",\
+]
 
 VorbisReleaseTags = {\
 "artist-credit-phrase":u"albumartist",\
@@ -55,13 +64,6 @@ VorbisRecordingTags = {\
 "artist-credit-phrase":u"artist",\
 "title":u"title",\
 }
-
-ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
-ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
-#q = musicbrainz2.webservice.Query(None,musicbrainz2.webservice.WebService,"masstagger-py-0.1")
-#result = ws.get_release_by_id("75b34c4a-1e15-3bf5-a734-abfafa94c731",["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
-#print json.dumps(result, sort_keys=True, indent=4)
-last_time = 0
 
 def PrintHeader():
     print ("-------------------------------------------------")
@@ -120,6 +122,12 @@ def RequestNextRelease(release_id):
             albums_fetch_queue.append(release_id)
         return None
 
+def CloseRelease(release_id):
+    del songs[release_id][:] #Clear the processed songs from this album
+    albums[release_id] = None
+    cover_art_list[release_id] = None
+    return
+
 ###############################################
 ### Metadata Syncing Functions ################
 ###############################################
@@ -171,7 +179,7 @@ def GetVorbisCommentMetadata(song, release_id):
                     artist_sort_name += c
                 i ^= 1
             metadata.setdefault(u"artistsort", []).append(artist_sort_name)
-    
+
     return metadata
 
 def SyncMP3MetaData(song,release_id):
@@ -179,7 +187,7 @@ def SyncMP3MetaData(song,release_id):
 
 def SyncFLACMetaData(song,release_id):
     tags = GetVorbisCommentMetadata(song,release_id)
-    
+
     cover_art = cover_art_list[release_id]
     if cover_art != None:
         song.clear_pictures();
@@ -194,9 +202,9 @@ def SyncFLACMetaData(song,release_id):
     song.save()
 
     os.rename(song.filename,"{:0>2}. {}{}".format(song[u"tracknumber"][0],song[u"title"][0],".flac"))
-    
+
     print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
-    
+
     return
 
 def SyncVorbisMetaData(song,release_id):
@@ -220,7 +228,7 @@ def SyncVorbisMetaData(song,release_id):
 
     print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
 
-    
+
     return
 
 def SyncMetadata(song,release_id):
@@ -245,7 +253,7 @@ def SyncMetadata(song,release_id):
     else:
         print (str(song.mime))
 
-    
+
 
     return
 
@@ -253,11 +261,18 @@ def SyncMetadata(song,release_id):
 ### Main Script Loop ##########################
 ###############################################
 
+ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
+ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
+
+#result = ws.get_release_by_id("75b34c4a-1e15-3bf5-a734-abfafa94c731",["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
+#print json.dumps(result, sort_keys=True, indent=4)
+last_time = 0
+
 PrintHeader()
 
 for dirname, dirnames, filenames in os.walk('.'):
         for filename in filenames:
-            if filename[-3:] == "mp3" or filename[-4:] == "flac" or filename[-3:] == "ogg":
+            if os.path.splitext(filename)[1] in ValidFileTypes: # Compares extension to valid extensions.
                 num_total_songs += 1
 
 print ("Found {} songs to update.".format(num_total_songs))
@@ -334,12 +349,9 @@ while num_albums != last_num_albums:
                 SyncMetadata(s,fetched_release)
             num_current_songs -= len(songs[fetched_release])
             print ("Pass {}: {} songs remaining to process and {}/{} processed.".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
-            del songs[fetched_release][:] #Clear the processed songs from this album
-            albums[fetched_release] = None
 
     for key in albums.iterkeys():
-        albums[key] = None
-
+        CloseRelease(key)
 
     num_albums = len(albums)
     no_new_albums = False
