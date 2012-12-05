@@ -20,7 +20,6 @@ import urllib2
 import time
 import mutagen.oggvorbis
 import mutagen.flac
-import struct
 import base64
 from collections import defaultdict
 from collections import deque
@@ -106,20 +105,10 @@ def FetchNextRelease():
     last_time = time.time()
     if len(albums_fetch_queue) > 0:
         release_id = albums_fetch_queue.popleft()
-        #print ("Fetching: |" + release_id + "| at time: {:.0f}.".format(time.time()))
-        try:
-            albums[release_id] = result = ws.get_release_by_id(release_id,["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
-        except musicbrainz2.webservice.WebServiceError as detail:
-            print ("Web Service Error: " + str(detail))
-            return None
-
-        try:
-            cover = urllib2.urlopen("http://coverartarchive.org/release/"+release_id+"/front-500",None,10)
-        except urllib2.HTTPError:
-            print "No cover art exists for "+release_id
-            cover_art_list[release_id] = None
-        else:
-            cover_art_list[release_id] = PackageCoverArt(cover.read())
+        result = release.Release(release_id)
+        result.fetch()
+        albums[release_id] = result.data
+        cover_art_list[release_id] = result.art
 
         return release_id
     else:
@@ -274,11 +263,6 @@ def SyncMetadata(song,release_id):
 ###############################################
 ### Main Script Loop ##########################
 ###############################################
-
-
-test = release.Release("75b34c4a-1e15-3bf5-a734-abfafa94c731")
-if test.valid:
-    print test.id
 
 ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
 ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
