@@ -27,6 +27,7 @@ from collections import deque
 import musicbrainzngs as ws
 import json
 import compatid3
+import release
 
 from utils import *
 
@@ -273,6 +274,11 @@ def SyncMetadata(song,release_id):
 ###############################################
 ### Main Script Loop ##########################
 ###############################################
+
+
+test = release.Release("75b34c4a-1e15-3bf5-a734-abfafa94c731")
+if test.valid:
+    print test.id
 
 ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
 ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
