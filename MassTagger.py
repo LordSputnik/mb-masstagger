@@ -19,7 +19,6 @@ import os
 import urllib2
 import time
 import mutagen.oggvorbis
-import mutagen.mp3
 import mutagen.flac
 import struct
 import base64
@@ -27,10 +26,13 @@ from collections import defaultdict
 from collections import deque
 import musicbrainzngs as ws
 import json
+import compatid3
 
 from utils import *
 
 num_flacs = num_mp3s = num_oggs = num_current_songs = num_processed_songs = num_total_songs = 0
+
+library_folder = ""
 
 albums_fetch_queue = deque()
 albums = {}
@@ -64,6 +66,13 @@ VorbisRecordingTags = {
     "artist-credit-phrase":"artist",
     "title":"title",
 }
+
+def DetectLibraryFolder(filenames):
+    global library_folder
+
+    possible_library_folder = os.path.commonprefix(filenames)
+    if os.path.isdir(possible_library_folder):
+        library_folder = possible_library_folder
 
 
 def PrintHeader():
@@ -133,6 +142,10 @@ def CloseRelease(release_id):
 ### Metadata Syncing Functions ################
 ###############################################
 
+def SaveFile(audio_file, disc_num, track_num, title, ext):
+    audio_file.save()
+    os.rename(audio_file.filename,os.path.join(library_folder,"{:0>2}. {}{}".format(track_num,title,ext)))
+
 def GetVorbisCommentMetadata(song, release_id):
     release = albums[release_id]
     recording = None
@@ -189,7 +202,7 @@ def SyncMP3MetaData(song,release_id):
 def SyncFLACMetaData(song,release_id):
     metadata = GetVorbisCommentMetadata(song,release_id)
     tags = {}
-    
+
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
 
@@ -204,9 +217,7 @@ def SyncFLACMetaData(song,release_id):
         song.add_picture(picture)
 
     song.update(tags)
-    song.save()
-
-    os.rename(song.filename,"{:0>2}. {}{}".format(song[u"tracknumber"][0],song[u"title"][0],".flac"))
+    SaveFile(song,1,song[u"tracknumber"][0],song[u"title"][0],".flac")
 
     print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
 
@@ -215,7 +226,7 @@ def SyncFLACMetaData(song,release_id):
 def SyncVorbisMetaData(song,release_id):
     metadata = GetVorbisCommentMetadata(song,release_id)
     tags = {}
-    
+
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
 
@@ -231,9 +242,7 @@ def SyncVorbisMetaData(song,release_id):
         tags.setdefault(u"METADATA_BLOCK_PICTURE", []).append(base64.standard_b64encode(picture.write()))
 
     song.update(tags)
-    song.save()
-
-    os.rename(song.filename,"{:0>2}. {}{}".format(song[u"tracknumber"][0],song[u"title"][0],".ogg"))
+    SaveFile(song,1,song[u"tracknumber"][0],song[u"title"][0],".ogg")
 
     print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
 
@@ -247,22 +256,17 @@ def SyncMetadata(song,release_id):
 
     num_processed_songs += 1
 
-    if "audio/mp3" in song.mime:
+    if song[1] == "mp3":
         num_mp3s += 1
-        SyncMP3MetaData(song,release_id)
-        #print song.pprint()
-        #print ("Checking metadata for: " + str(song['TIT2']))
-    elif "audio/x-flac" in song.mime:
+        SyncMP3MetaData(song[0],release_id)
+    elif song[1] == "flac":
         num_flacs += 1
-        SyncFLACMetaData(song,release_id)
-        #print ("Checking metadata for: " + song['title'][0])
-    elif "audio/vorbis" in song.mime:
+        SyncFLACMetaData(song[0],release_id)
+    elif song[1] == "ogg":
         num_oggs += 1
-        SyncVorbisMetaData(song,release_id)
+        SyncVorbisMetaData(song[0],release_id)
     else:
-        print (str(song.mime))
-
-
+        num_processed_songs -= 1
 
     return
 
@@ -279,10 +283,15 @@ last_time = 0
 
 PrintHeader()
 
+filename_list = list()
 for dirname, dirnames, filenames in os.walk('.'):
         for filename in filenames:
             if os.path.splitext(filename)[1] in ValidFileTypes: # Compares extension to valid extensions.
+                filename_list.append(os.path.join(dirname,filename))
                 num_total_songs += 1
+
+DetectLibraryFolder(filename_list)
+del filename_list
 
 print ("Found {} songs to update.".format(num_total_songs))
 print ("Updating...\n")
@@ -306,35 +315,35 @@ while num_albums != last_num_albums:
             release_id = None
             audio = None
             if filename[-3:] == "mp3":
-                try:
-                    audio = mutagen.mp3.MP3((dirname+"/"+filename))
-                except mutagen.mp3.HeaderNotFoundError:
-                    print ("Invalid MP3 File")
+#                try:
+                audio = (compatid3.CompatID3(dirname+"/"+filename),"mp3")
+                #except mutagen.mp3.HeaderNotFoundError:
+                #    print ("Invalid MP3 File")
+                #else:
+                if audio[0].has_key("TXXX:musicbrainz_albumid"):
+                    release_id = str(audio[0]["TXXX:musicbrainz_albumid"])
                 else:
-                    if audio.has_key("TXXX:musicbrainz_albumid"):
-                        release_id = str(audio["TXXX:musicbrainz_albumid"])
-                    else:
-                        if str(dirname+"/"+filename) not in skipped_files:
-                            skipped_files.append(str(dirname+"/"+filename))
+                    if str(dirname+"/"+filename) not in skipped_files:
+                        skipped_files.append(str(dirname+"/"+filename))
 
     #            print audio.pprint()
             elif filename[-4:] == "flac":
                 try:
-                    audio = mutagen.flac.FLAC((dirname+"/"+filename))
+                    audio = (mutagen.flac.FLAC(dirname+"/"+filename),"flac")
                 except mutagen.flac.FLACNoHeaderError:
                     print ("Invalid FLAC File")
                 else:
-                    if audio.has_key("musicbrainz_albumid"):
-                        release_id = str(audio["musicbrainz_albumid"][0])
+                    if audio[0].has_key("musicbrainz_albumid"):
+                        release_id = str(audio[0]["musicbrainz_albumid"][0])
                     else:
                         if str(dirname+"/"+filename) not in skipped_files:
                             skipped_files.append(str(dirname+"/"+filename))
 
     #            print audio.pprint()
             elif filename[-3:] == "ogg":
-                audio = mutagen.oggvorbis.OggVorbis(dirname+"/"+filename)
-                if audio.has_key("musicbrainz_albumid"):
-                    release_id = str(audio["musicbrainz_albumid"][0])
+                audio = (mutagen.oggvorbis.OggVorbis(dirname+"/"+filename),"ogg")
+                if audio[0].has_key("musicbrainz_albumid"):
+                    release_id = str(audio[0]["musicbrainz_albumid"][0])
                 else:
                     if str(dirname+"/"+filename) not in skipped_files:
                         skipped_files.append(str(dirname+"/"+filename))
