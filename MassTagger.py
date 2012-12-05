@@ -83,20 +83,6 @@ def PrintHeader():
     print ("Starting...")
     return
 
-def PackageCoverArt(image_content):
-    pos = image_content.find(chr(255) + chr(0xC0))
-
-    image_info = struct.unpack(">xxxxBHHB",image_content[pos:pos+10])
-
-    #print "Image Size: " + str(len(image_content)) + " bytes"
-    #print "Sample Precision: " + str(image_info[0])
-    #print "Image Height: " + str(image_info[1])
-    #print "Image Width: " + str(image_info[2])
-    #print "Number of components: " + str(image_info[3])
-    #print "Bits per Pixel: " + str(image_info[0]*image_info[3])
-    return image_info[0],image_info[1],image_info[2],image_info[3],image_content
-
-
 def FetchNextRelease():
     global last_time
     if (time.time() - last_time) < 1:
@@ -105,9 +91,13 @@ def FetchNextRelease():
     last_time = time.time()
     if len(albums_fetch_queue) > 0:
         release_id = albums_fetch_queue.popleft()
-        result = release.Release(release_id)
+        result = albums[release_id]
+
+        if not result.valid:
+            return None
+
         result.fetch()
-        albums[release_id] = result.data
+        albums[release_id] = result
         cover_art_list[release_id] = result.art
 
         return release_id
@@ -116,17 +106,15 @@ def FetchNextRelease():
 
 def RequestNextRelease(release_id):
     if release_id in albums:
+        if not albums[release_id].fetched:
+            return None
+
         return release_id
     else:
         if release_id not in albums_fetch_queue:
             albums_fetch_queue.append(release_id)
+            albums[release_id] = release.Release(release_id)
         return None
-
-def CloseRelease(release_id):
-    del songs[release_id][:] #Clear the processed songs from this album
-    albums[release_id] = None
-    cover_art_list[release_id] = None
-    return
 
 ###############################################
 ### Metadata Syncing Functions ################
@@ -137,7 +125,7 @@ def SaveFile(audio_file, disc_num, track_num, title, ext):
     os.rename(audio_file.filename,os.path.join(library_folder,"{:0>2}. {}{}".format(track_num,title,ext)))
 
 def GetVorbisCommentMetadata(song, release_id):
-    release = albums[release_id]
+    release = albums[release_id].data
     recording = None
     metadata = {}
 
@@ -241,7 +229,8 @@ def SyncVorbisMetaData(song,release_id):
 
 def SyncMetadata(song,release_id):
     global num_flacs, num_mp3s, num_oggs, num_processed_songs
-    if albums[release_id] == None:
+
+    if not albums[release_id].valid:
         return
 
     num_processed_songs += 1
@@ -344,11 +333,13 @@ while num_albums != last_num_albums:
                 if (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums_fetch_queue)):
                     if RequestNextRelease(release_id) == None:
                         songs[release_id].append(audio)
+                        albums[release_id].add_song(audio)
                         num_current_songs += 1
                     else:
                         SyncMetadata(audio,release_id)
                 elif release_id in albums:
-                    SyncMetadata(audio,release_id)
+                    if albums[release_id].fetched:
+                        SyncMetadata(audio,release_id)
 
     while len(albums_fetch_queue) > 0:
         fetched_release = FetchNextRelease()
@@ -358,8 +349,8 @@ while num_albums != last_num_albums:
             num_current_songs -= len(songs[fetched_release])
             print ("Pass {}: {} songs remaining to process and {}/{} processed.".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
 
-    for key in albums.iterkeys():
-        CloseRelease(key)
+    for album in albums.values():
+        album.close()
 
     num_albums = len(albums)
     no_new_albums = False

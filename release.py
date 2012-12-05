@@ -4,8 +4,13 @@ import struct
 import musicbrainzngs as ws
 
 class Release:
+    songs = list()
+    valid = True
+    fetched = False
+    art = None
+    data = None
+
     def __init__(self,id_):
-        self.valid = True
         try:
             uuid.UUID(id_)
         except ValueError:
@@ -33,6 +38,7 @@ class Release:
         else:
             self.art = self.__PackageCoverArt(cover.read())
 
+        fetched = True
         return self.id
 
     def __PackageCoverArt(self,image_content):
@@ -47,3 +53,20 @@ class Release:
         #print "Number of components: " + str(image_info[3])
         #print "Bits per Pixel: " + str(image_info[0]*image_info[3])
         return image_info[0],image_info[1],image_info[2],image_info[3],image_content
+
+    def add_song(self,audio_file):
+        if not self.valid:
+            return
+
+        self.songs.append(audio_file)
+        for song in self.songs:
+                print "Contains: "+str(song[1])
+
+    def close(self):
+        if self.valid:
+            self.valid = False
+            self.data = None
+            self.art = None
+            del self.songs[:]
+            for song in self.songs:
+                print "Contains: "+str(song[1])
