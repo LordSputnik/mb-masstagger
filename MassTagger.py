@@ -76,10 +76,10 @@ def DetectLibraryFolder(filenames):
 
 def PrintHeader():
     print ("\
--------------------------------------------------\n\
-| MusicBrainz Warp - 0.1                        |\n\
-| Created Ben Ockmore AKA LordSputnik, (C) 2012 |\n\
--------------------------------------------------\n\n\
+----------------------------------------------------\n\
+| MusicBrainz Warp - 0.1                           |\n\
+| Created by Ben Ockmore AKA LordSputnik, (C) 2012 |\n\
+----------------------------------------------------\n\n\
 Starting...")
     return
 
