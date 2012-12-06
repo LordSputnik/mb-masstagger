@@ -4,13 +4,13 @@ import struct
 import musicbrainzngs as ws
 
 class Release:
-    songs = list()
-    valid = True
-    fetched = False
-    art = None
-    data = None
-
+    
     def __init__(self,id_):
+        self.songs = list()
+        self.fetched = False
+        self.valid = True
+        self.art = None
+        self.data = None
         try:
             uuid.UUID(id_)
         except ValueError:
@@ -18,6 +18,7 @@ class Release:
             self.valid = False
         else:
             self.id = id_
+            
 
     def fetch(self):
         if not self.valid:

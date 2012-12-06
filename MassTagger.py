@@ -26,7 +26,7 @@ from collections import deque
 import musicbrainzngs as ws
 import json
 import compatid3
-import release
+import entities
 
 from utils import *
 
@@ -98,7 +98,7 @@ def FetchNextRelease():
 
         result.fetch()
         if result.fetched:
-            return release_id
+            return result
         else:
             return None
     else:
@@ -109,7 +109,7 @@ def RequestNextRelease(release_id):
     if release_id not in albums:
         if release_id not in albums_fetch_queue:
             albums_fetch_queue.append(release_id)
-            albums[release_id] = release.Release(release_id)
+            albums[release_id] = entities.Release(release_id)
 
     return albums[release_id]
 
@@ -121,8 +121,8 @@ def SaveFile(audio_file, disc_num, track_num, title, ext):
     audio_file.save()
     os.rename(audio_file.filename,os.path.join(library_folder,"{:0>2}. {}{}".format(track_num,title,ext)))
 
-def GetVorbisCommentMetadata(song, release_id):
-    release_data = albums[release_id].data
+def GetVorbisCommentMetadata(song, release):
+    release_data = release.data
     recording = None
     metadata = {}
 
@@ -171,17 +171,17 @@ def GetVorbisCommentMetadata(song, release_id):
 
     return metadata
 
-def SyncMP3MetaData(song,release_id):
+def SyncMP3MetaData(song,release):
     return
 
-def SyncFLACMetaData(song,release_id):
-    metadata = GetVorbisCommentMetadata(song,release_id)
+def SyncFLACMetaData(song,release):
+    metadata = GetVorbisCommentMetadata(song,release)
     tags = {}
 
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
 
-    cover_art = albums[release_id].art
+    cover_art = release.art
     if cover_art != None:
         song.clear_pictures();
         picture = mutagen.flac.Picture()
@@ -198,14 +198,14 @@ def SyncFLACMetaData(song,release_id):
 
     return
 
-def SyncVorbisMetaData(song,release_id):
-    metadata = GetVorbisCommentMetadata(song,release_id)
+def SyncVorbisMetaData(song,release):
+    metadata = GetVorbisCommentMetadata(song,release)
     tags = {}
 
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
 
-    cover_art = albums[release_id].art
+    cover_art = release.art
     if cover_art != None:
         if song.has_key(u"METADATA_BLOCK_PICTURE"):
             song[u"METADATA_BLOCK_PICTURE"] = []
@@ -224,23 +224,23 @@ def SyncVorbisMetaData(song,release_id):
 
     return
 
-def SyncMetadata(song,release_id):
+def SyncMetadata(song, release):
     global num_flacs, num_mp3s, num_oggs, num_processed_songs
 
-    if not albums[release_id].valid:
+    if not release.valid:
         return
 
     num_processed_songs += 1
 
     if song[1] == "mp3":
         num_mp3s += 1
-        SyncMP3MetaData(song[0],release_id)
+        SyncMP3MetaData(song[0],release)
     elif song[1] == "flac":
         num_flacs += 1
-        SyncFLACMetaData(song[0],release_id)
+        SyncFLACMetaData(song[0],release)
     elif song[1] == "ogg":
         num_oggs += 1
-        SyncVorbisMetaData(song[0],release_id)
+        SyncVorbisMetaData(song[0],release)
     else:
         num_processed_songs -= 1
 
@@ -280,27 +280,19 @@ while num_albums != last_num_albums:
             if (num_current_songs > 1000) or (len(albums) > 100):
                 no_new_albums = True
 
-            fetched_release = FetchNextRelease()
-            if fetched_release != None:
-                for s in songs[fetched_release]:
-                    SyncMetadata(s,fetched_release)
-                num_current_songs -= len(songs[fetched_release])
-                print ("Pass {}: {} songs remaining to process and {}/{} processed.".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
-                del songs[fetched_release][:] #Clear the processed songs from this album
-
             release_id = None
             audio = None
             if filename[-3:] == "mp3":
-#                try:
-                audio = (compatid3.CompatID3(dirname+"/"+filename),"mp3")
-                #except mutagen.mp3.HeaderNotFoundError:
-                #    print ("Invalid MP3 File")
-                #else:
-                if audio[0].has_key("TXXX:musicbrainz_albumid"):
-                    release_id = str(audio[0]["TXXX:musicbrainz_albumid"])
+                try:
+                    audio = (compatid3.CompatID3(dirname+"/"+filename),"mp3")
+                except mutagen.id3.ID3NoHeaderError:
+                    print ("Invalid MP3 File")
                 else:
-                    if str(dirname+"/"+filename) not in skipped_files:
-                        skipped_files.append(str(dirname+"/"+filename))
+                    if audio[0].has_key("TXXX:musicbrainz_albumid"):
+                        release_id = str(audio[0]["TXXX:musicbrainz_albumid"])
+                    else:
+                        if str(dirname+"/"+filename) not in skipped_files:
+                            skipped_files.append(str(dirname+"/"+filename))
 
     #            print audio.pprint()
             elif filename[-4:] == "flac":
@@ -327,20 +319,19 @@ while num_albums != last_num_albums:
 #                print audio.pprint()
 
             if release_id != None:
-                if release_id in albums and albums[release_id].fetched:
-                    SyncMetadata(audio,release_id)
-                elif (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums_fetch_queue)):
+                if (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums.keys())):
                     result = RequestNextRelease(release_id)
-                    songs[release_id].append(audio)
-                    result.add_song(audio)
-                    num_current_songs += 1
+                    if result is not None:
+                        result.add_song(audio)
+                        num_current_songs += 1
 
     while len(albums_fetch_queue) > 0:
         fetched_release = FetchNextRelease()
         if fetched_release != None:
-            for s in songs[fetched_release]:
+            print "ID: " + fetched_release.id + " with " + str(len(fetched_release.songs)) + " songs."
+            for s in fetched_release.songs:
                 SyncMetadata(s,fetched_release)
-            num_current_songs -= len(songs[fetched_release])
+            num_current_songs -= len(fetched_release.songs)
             print ("Pass {}: {} songs remaining to process and {}/{} processed.".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
 
     for album in albums.values():
