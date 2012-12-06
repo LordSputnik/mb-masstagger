@@ -24,21 +24,28 @@ class Release:
             return
 
         #Do fetching here
-        #try:
-        self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
-        #except musicbrainz2.webservice.WebServiceError as detail:
-        #    print ("Web Service Error: " + str(detail))
-        #    self.data = None
-
+        try:
+            self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
+        except ws.musicbrainz.ResponseError:
+            print ("Connection Error!")
+            self.data = None
+            return
+        except ws.musicbrainz.NetworkError:
+            print ("Connection Error!")
+            self.data = None
+            return
         try:
             cover = urllib2.urlopen("http://coverartarchive.org/release/"+self.id+"/front-500",None,10)
         except urllib2.HTTPError:
-            print "No cover art exists for "+self.id
+            print "No cover art exists for " + self.id
+            self.art = None
+        except urllib2.URLError:
+            print "Connection Error!"
             self.art = None
         else:
             self.art = self.__PackageCoverArt(cover.read())
 
-        fetched = True
+        self.fetched = True
         return self.id
 
     def __PackageCoverArt(self,image_content):
@@ -59,8 +66,6 @@ class Release:
             return
 
         self.songs.append(audio_file)
-        for song in self.songs:
-                print "Contains: "+str(song[1])
 
     def close(self):
         if self.valid:
@@ -68,5 +73,3 @@ class Release:
             self.data = None
             self.art = None
             del self.songs[:]
-            for song in self.songs:
-                print "Contains: "+str(song[1])

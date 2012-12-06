@@ -45,7 +45,6 @@ last_num_albums = None
 no_new_albums = False
 
 song_ids = list()
-cover_art_list = {}
 
 ValidFileTypes = [
     ".flac",
@@ -97,24 +96,22 @@ def FetchNextRelease():
             return None
 
         result.fetch()
-        albums[release_id] = result
-        cover_art_list[release_id] = result.art
+        if result.fetched:
 
-        return release_id
+            return release_id
+        else:
+            return None
     else:
         return None
 
 def RequestNextRelease(release_id):
-    if release_id in albums:
-        if not albums[release_id].fetched:
-            return None
-
-        return release_id
-    else:
+    global albums
+    if release_id not in albums:
         if release_id not in albums_fetch_queue:
             albums_fetch_queue.append(release_id)
             albums[release_id] = release.Release(release_id)
-        return None
+
+    return albums[release_id]
 
 ###############################################
 ### Metadata Syncing Functions ################
@@ -125,12 +122,12 @@ def SaveFile(audio_file, disc_num, track_num, title, ext):
     os.rename(audio_file.filename,os.path.join(library_folder,"{:0>2}. {}{}".format(track_num,title,ext)))
 
 def GetVorbisCommentMetadata(song, release_id):
-    release = albums[release_id].data
+    release_data = albums[release_id].data
     recording = None
     metadata = {}
 
     #Get the recording info for the song.
-    for medium in release["medium-list"]:
+    for medium in release_data["medium-list"]:
         if medium["position"] == song["discnumber"][0]:
             for t in medium["track-list"]:
                 if t["position"] == song["tracknumber"][0]:
@@ -139,7 +136,7 @@ def GetVorbisCommentMetadata(song, release_id):
     if recording is None: #Couldn't find the recording - we can't do anything (except maybe look for recording id).
         return None
 
-    for key,value in release.items():
+    for key,value in release_data.items():
         if VorbisReleaseTags.has_key(key):
             metadata.setdefault(VorbisReleaseTags[key], []).append(value)
         elif key == "artist-credit":
@@ -184,7 +181,7 @@ def SyncFLACMetaData(song,release_id):
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
 
-    cover_art = cover_art_list[release_id]
+    cover_art = albums[release_id].art
     if cover_art != None:
         song.clear_pictures();
         picture = mutagen.flac.Picture()
@@ -208,7 +205,7 @@ def SyncVorbisMetaData(song,release_id):
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
 
-    cover_art = cover_art_list[release_id]
+    cover_art = albums[release_id].art
     if cover_art != None:
         if song.has_key(u"METADATA_BLOCK_PICTURE"):
             song[u"METADATA_BLOCK_PICTURE"] = []
@@ -280,7 +277,7 @@ while num_albums != last_num_albums:
     num_passes += 1
     for dirname, dirnames, filenames in os.walk('.'):
         for filename in filenames:
-            if (num_current_songs > 1000) or (len(cover_art_list) > 100):
+            if (num_current_songs > 1000) or (len(albums) > 100):
                 no_new_albums = True
 
             fetched_release = FetchNextRelease()
@@ -330,16 +327,13 @@ while num_albums != last_num_albums:
 #                print audio.pprint()
 
             if release_id != None:
-                if (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums_fetch_queue)):
-                    if RequestNextRelease(release_id) == None:
-                        songs[release_id].append(audio)
-                        albums[release_id].add_song(audio)
-                        num_current_songs += 1
-                    else:
-                        SyncMetadata(audio,release_id)
-                elif release_id in albums:
-                    if albums[release_id].fetched:
-                        SyncMetadata(audio,release_id)
+                if release_id in albums and albums[release_id].fetched:
+                    SyncMetadata(audio,release_id)
+                elif (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums_fetch_queue)):
+                    result = RequestNextRelease(release_id)
+                    songs[release_id].append(audio)
+                    result.add_song(audio)
+                    num_current_songs += 1
 
     while len(albums_fetch_queue) > 0:
         fetched_release = FetchNextRelease()
@@ -362,5 +356,3 @@ if len(skipped_files) > 0:
     print ("Skipped {} files with no MB Release ID:".format(len(skipped_files)))
     for s in skipped_files:
         print " " + s
-
-
