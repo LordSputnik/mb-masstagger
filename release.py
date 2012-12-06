@@ -23,7 +23,7 @@ class Release:
         if not self.valid:
             return
 
-        #Do fetching here
+        #Get the song metadata from MB Web Service - invalid release if this fails
         try:
             self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
         except ws.musicbrainz.ResponseError:
@@ -34,6 +34,8 @@ class Release:
             print ("Connection Error!")
             self.data = None
             return
+
+        #Get cover art for release - no CA if this fails
         try:
             cover = urllib2.urlopen("http://coverartarchive.org/release/"+self.id+"/front-500",None,10)
         except urllib2.HTTPError:
@@ -45,6 +47,7 @@ class Release:
         else:
             self.art = self.__PackageCoverArt(cover.read())
 
+        #Successfully retrieved data
         self.fetched = True
         return self.id
 

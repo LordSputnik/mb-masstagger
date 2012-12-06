@@ -75,11 +75,12 @@ def DetectLibraryFolder(filenames):
 
 
 def PrintHeader():
-    print ("-------------------------------------------------")
-    print ("| MusicBrainz Warp - 0.1                        |")
-    print ("| Created Ben Ockmore AKA LordSputnik, (C) 2012 |")
-    print ("-------------------------------------------------\n")
-    print ("Starting...")
+    print ("\
+-------------------------------------------------\n\
+| MusicBrainz Warp - 0.1                        |\n\
+| Created Ben Ockmore AKA LordSputnik, (C) 2012 |\n\
+-------------------------------------------------\n\n\
+Starting...")
     return
 
 def FetchNextRelease():
@@ -97,7 +98,6 @@ def FetchNextRelease():
 
         result.fetch()
         if result.fetched:
-
             return release_id
         else:
             return None
