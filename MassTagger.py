@@ -36,6 +36,7 @@ library_folder = ""
 
 albums_fetch_queue = deque()
 albums = {}
+options = {}
 songs = defaultdict(list)
 skipped_files = list()
 num_passes = 0
@@ -69,10 +70,14 @@ VorbisRecordingTags = {
 def DetectLibraryFolder(filenames):
     global library_folder
 
+    for file in filenames:
+        print file
+
     possible_library_folder = os.path.commonprefix(filenames)
     if os.path.isdir(possible_library_folder):
         library_folder = possible_library_folder
 
+    print library_folder
 
 def PrintHeader():
     print ("\
@@ -113,13 +118,44 @@ def RequestNextRelease(release_id):
 
     return albums[release_id]
 
+def InterpretOptionValue(value):
+    if value.startswith("y") or value == "1":
+        return True
+    elif value.startswith("n") or value == "0":
+        return False
+    else:
+        return value.replace("\"","")
+
+def ReadOptions(file_name):
+    f = open(file_name,"r")
+    for line in f:
+        words = line.split("=")
+        if len(words) > 1:
+            options[words[0]] = InterpretOptionValue(words[1])
+            print "{} = {}".format(words[0], options[words[0]])
+
 ###############################################
 ### Metadata Syncing Functions ################
 ###############################################
 
-def SaveFile(audio_file, disc_num, track_num, title, ext):
-    audio_file.save()
-    os.rename(audio_file.filename,os.path.join(library_folder,"{:0>2}. {}{}".format(track_num,title,ext)))
+def SaveFile(audio_file, metadata, track_num, disc_num):
+    audio_file[0].save()
+
+    dest_name = ""
+    disc_string = "{"+":0>{}".format(len(metadata["totaldiscs"][0])) + "}"
+    track_string = "{"+":0>{}".format(len(metadata["totaltracks"][0])) + "}"
+    if options["rename-files"]:
+        if int(metadata["totaldiscs"][0]) == 1:
+            dest_name = options["rename-format"]
+            dest_name = dest_name.replace("#",track_string.format(track_num)).replace("T","{}.{}".format(metadata["title"][0],audio_file[1]))
+        else:
+            dest_name = options["multi-disc-rename-format"]
+            dest_name = dest_name.replace("D",disc_string.format(disc_num)).replace("#",track_string.format(track_num)).replace("T","{}.{}".format(metadata["title"][0],audio_file[1]))
+
+        print dest_name
+
+        
+        os.rename(audio_file[0].filename,os.path.join(library_folder,"{:0>2}. {}.{}".format(track_num,metadata["title"][0],audio_file[1])))
 
 def GetVorbisCommentMetadata(song, release):
     release_data = release.data
@@ -127,8 +163,10 @@ def GetVorbisCommentMetadata(song, release):
     metadata = {}
 
     #Get the recording info for the song.
+    metadata.setdefault("totaldiscs", []).append(str(len(release_data["medium-list"])))
     for medium in release_data["medium-list"]:
         if medium["position"] == song["discnumber"][0]:
+            metadata.setdefault("totaltracks", []).append(str(len(medium["track-list"])))
             for t in medium["track-list"]:
                 if t["position"] == song["tracknumber"][0]:
                     recording = t["recording"]
@@ -175,7 +213,7 @@ def SyncMP3MetaData(song,release):
     return
 
 def SyncFLACMetaData(song,release):
-    metadata = GetVorbisCommentMetadata(song,release)
+    metadata = GetVorbisCommentMetadata(song[0],release)
     tags = {}
 
     for key,value in metadata.items():
@@ -183,23 +221,23 @@ def SyncFLACMetaData(song,release):
 
     cover_art = release.art
     if cover_art != None:
-        song.clear_pictures();
+        song[0].clear_pictures();
         picture = mutagen.flac.Picture()
         picture.data = cover_art[4]
         picture.mime = "image/jpeg"
         picture.desc = ""
         picture.type = 3
-        song.add_picture(picture)
+        song[0].add_picture(picture)
 
-    song.update(tags)
-    SaveFile(song,1,song[u"tracknumber"][0],song[u"title"][0],".flac")
-
-    print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
+    song[0].update(tags)
+    
+    SaveFile(song,metadata,song[0][u"tracknumber"][0],"1")
+    print "Updating \"" + song[0][u"title"][0] + "\" by " + song[0]["artist"][0]
 
     return
 
 def SyncVorbisMetaData(song,release):
-    metadata = GetVorbisCommentMetadata(song,release)
+    metadata = GetVorbisCommentMetadata(song[0],release)
     tags = {}
 
     for key,value in metadata.items():
@@ -207,8 +245,8 @@ def SyncVorbisMetaData(song,release):
 
     cover_art = release.art
     if cover_art != None:
-        if song.has_key(u"METADATA_BLOCK_PICTURE"):
-            song[u"METADATA_BLOCK_PICTURE"] = []
+        if song[0].has_key(u"METADATA_BLOCK_PICTURE"):
+            song[0][u"METADATA_BLOCK_PICTURE"] = []
         picture = mutagen.flac.Picture()
         picture.data = cover_art[4]
         picture.mime = "image/jpeg"
@@ -216,10 +254,10 @@ def SyncVorbisMetaData(song,release):
         picture.type = 3
         tags.setdefault(u"METADATA_BLOCK_PICTURE", []).append(base64.standard_b64encode(picture.write()))
 
-    song.update(tags)
-    SaveFile(song,1,song[u"tracknumber"][0],song[u"title"][0],".ogg")
+    song[0].update(tags)
+    SaveFile(song,metadata,song[0][u"tracknumber"][0],"1")
 
-    print "Updating \"" + song[u"title"][0] + "\" by " + song["artist"][0]
+    print "Updating \"" + song[0][u"title"][0] + "\" by " + song[0]["artist"][0]
 
 
     return
@@ -234,13 +272,13 @@ def SyncMetadata(song, release):
 
     if song[1] == "mp3":
         num_mp3s += 1
-        SyncMP3MetaData(song[0],release)
+        SyncMP3MetaData(song,release)
     elif song[1] == "flac":
         num_flacs += 1
-        SyncFLACMetaData(song[0],release)
+        SyncFLACMetaData(song,release)
     elif song[1] == "ogg":
         num_oggs += 1
-        SyncVorbisMetaData(song[0],release)
+        SyncVorbisMetaData(song,release)
     else:
         num_processed_songs -= 1
 
@@ -253,8 +291,11 @@ def SyncMetadata(song, release):
 ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
 ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
 
-#result = ws.get_release_by_id("75b34c4a-1e15-3bf5-a734-abfafa94c731",["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
-#print json.dumps(result, sort_keys=True, indent=4)
+if os.path.exists("./options"):
+    ReadOptions("./options")
+
+result = ws.get_release_by_id("75b34c4a-1e15-3bf5-a734-abfafa94c731",["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
+print json.dumps(result, sort_keys=True, indent=4)
 last_time = 0
 
 PrintHeader()
