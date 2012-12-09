@@ -5,9 +5,11 @@ import musicbrainzngs as ws
 
 class Track:
 
-    def __init__(self,id_):
-        print test
-        
+    def __init__(self,audio_file,type):
+        self.file = audio_file
+        self.ext = type
+
+
 
 class Release:
     MetadataTags = {
@@ -19,7 +21,7 @@ class Release:
         "country":"releasecountry",
         "id":"musicbrainz_albumid"
     }
-    
+
     def __init__(self,id_):
         self.songs = list()
         self.fetched = False
@@ -34,7 +36,7 @@ class Release:
             self.valid = False
         else:
             self.id = id_
-            
+
 
     def fetch(self):
         if not self.valid:
@@ -90,9 +92,6 @@ class Release:
             elif key == "release-group":
                 self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
                 self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
-
-        for k,v in self.processed_data.items():
-            print str(k) + ": " + str(v)
 
     def __PackageCoverArt(self,image_content):
         pos = image_content.find(chr(255) + chr(0xC0))
