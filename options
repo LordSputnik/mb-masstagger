@@ -1,0 +1,12 @@
+rename-files=no
+rename-format="#. T"
+multi-disc-rename-format="D-#. T"
+move-files=no
+
+-----------
+
+lib-dir="test"
+
+-----------
+
+clear-tags=no

@@ -3,7 +3,22 @@ import urllib2
 import struct
 import musicbrainzngs as ws
 
+class Track:
+
+    def __init__(self,id_):
+        print test
+        
+
 class Release:
+    MetadataTags = {
+        "artist-credit-phrase":"albumartist",
+        "asin":"asin",
+        "title":"album",
+        "barcode":"barcode",
+        "date":"date",
+        "country":"releasecountry",
+        "id":"musicbrainz_albumid"
+    }
     
     def __init__(self,id_):
         self.songs = list()
@@ -11,6 +26,7 @@ class Release:
         self.valid = True
         self.art = None
         self.data = None
+        self.processed_data = {}
         try:
             uuid.UUID(id_)
         except ValueError:
@@ -36,6 +52,8 @@ class Release:
             self.data = None
             return
 
+        self.__ProcessData()
+
         #Get cover art for release - no CA if this fails
         try:
             cover = urllib2.urlopen("http://coverartarchive.org/release/"+self.id+"/front-500",None,10)
@@ -51,6 +69,30 @@ class Release:
         #Successfully retrieved data
         self.fetched = True
         return self.id
+
+    def __ProcessData(self):
+        for key,value in self.data.items():
+            if self.MetadataTags.has_key(key):
+                self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
+            elif key == "artist-credit":
+                i = 0
+                aartist_sort_name = ""
+                for c in value:
+                    if i == 0: #artist
+                        aartist_sort_name += c["artist"]["sort-name"]
+                        self.processed_data.setdefault("musicbrainz_albumartistid", []).append(c["artist"]["id"])
+                    else: #join phrase
+                        aartist_sort_name += c
+                    i ^= 1
+                self.processed_data.setdefault("albumartistsort", []).append(aartist_sort_name)
+            elif key == "status":
+                self.processed_data.setdefault("releasestatus", []).append(value.lower())
+            elif key == "release-group":
+                self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
+                self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
+
+        for k,v in self.processed_data.items():
+            print str(k) + ": " + str(v)
 
     def __PackageCoverArt(self,image_content):
         pos = image_content.find(chr(255) + chr(0xC0))

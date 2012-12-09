@@ -53,18 +53,10 @@ ValidFileTypes = [
     ".mp3",
 ]
 
-VorbisReleaseTags = {
-    "artist-credit-phrase":"albumartist",
-    "asin":"asin",
-    "title":"album",
-    "barcode":"barcode",
-    "date":"date",
-    "country":"releasecountry",
-}
-
 VorbisRecordingTags = {
     "artist-credit-phrase":"artist",
     "title":"title",
+    "id":"musicbrainz_trackid"
 }
 
 def DetectLibraryFolder(filenames):
@@ -163,35 +155,29 @@ def GetVorbisCommentMetadata(song, release):
     metadata = {}
 
     #Get the recording info for the song.
+    total_discs = len(release_data["medium-list"])
+
+    #TODO - Move this out of the function so that we can specialize to the correct tag for each file format. Perhaps put in Song class.
+    if song.has_key("discnumber"):
+        discnumber = song["discnumber"][0]
+    elif total_discs == 1:
+        discnumber = "1"
+    else:
+        print "Error, no disc number for multi-disc release!"
+        return None
+        
     metadata.setdefault("totaldiscs", []).append(str(len(release_data["medium-list"])))
     for medium in release_data["medium-list"]:
-        if medium["position"] == song["discnumber"][0]:
+        if medium["position"] == discnumber:
+            metadata.setdefault("discnumber", []).append(medium["position"])
             metadata.setdefault("totaltracks", []).append(str(len(medium["track-list"])))
             for t in medium["track-list"]:
                 if t["position"] == song["tracknumber"][0]:
+                    metadata.setdefault("tracknumber", []).append(t["position"])
                     recording = t["recording"]
 
     if recording is None: #Couldn't find the recording - we can't do anything (except maybe look for recording id).
         return None
-
-    for key,value in release_data.items():
-        if VorbisReleaseTags.has_key(key):
-            metadata.setdefault(VorbisReleaseTags[key], []).append(value)
-        elif key == "artist-credit":
-            i = 0
-            aartist_sort_name = ""
-            for c in value:
-                if i == 0: #artist
-                    aartist_sort_name += c["artist"]["sort-name"]
-                else: #join phrase
-                    aartist_sort_name += c
-                i ^= 1
-            metadata.setdefault("albumartistsort", []).append(aartist_sort_name)
-        elif key == "status":
-            metadata.setdefault("releasestatus", []).append(value.lower())
-        elif key == "release-group":
-            metadata.setdefault("originaldate", []).append(value["first-release-date"])
-            metadata.setdefault("releasetype", []).append(value["type"].lower())
 
     for key,value in recording.items():
         if VorbisRecordingTags.has_key(key):
@@ -202,6 +188,7 @@ def GetVorbisCommentMetadata(song, release):
             for c in value:
                 if i == 0: #artist
                     artist_sort_name += c["artist"]["sort-name"]
+                    metadata.setdefault("musicbrainz_artistid", []).append(c["artist"]["id"])
                 else: #join phrase
                     artist_sort_name += c
                 i ^= 1
@@ -214,7 +201,16 @@ def SyncMP3MetaData(song,release):
 
 def SyncFLACMetaData(song,release):
     metadata = GetVorbisCommentMetadata(song[0],release)
+    if metadata == None:
+        return
+
     tags = {}
+
+    if options["clear-tags"]:
+        song[0].delete()
+
+    for key,value in release.processed_data.items():
+        tags[key.upper().encode("utf-8")] = value
 
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
@@ -238,7 +234,13 @@ def SyncFLACMetaData(song,release):
 
 def SyncVorbisMetaData(song,release):
     metadata = GetVorbisCommentMetadata(song[0],release)
+    if metadata == None:
+        return
+        
     tags = {}
+
+    if options["clear-tags"]:
+        song[0].delete()
 
     for key,value in metadata.items():
         tags[key.upper().encode("utf-8")] = value
