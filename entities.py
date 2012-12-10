@@ -4,11 +4,20 @@ import struct
 import musicbrainzngs as ws
 
 class Track:
+    MetadataTags = {
+        "artist-credit-phrase":"artist",
+        "title":"title",
+        "id":"musicbrainz_trackid"
+    }
 
-    def __init__(self,audio_file,type):
+    def __init__(self,audio_file,type,release):
         self.file = audio_file
         self.ext = type
+        self.release = release
+        self.processed_data = {}
 
+    def __ProcessData(self):
+        return
 
 
 class Release:

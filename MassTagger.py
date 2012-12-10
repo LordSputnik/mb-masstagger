@@ -32,8 +32,6 @@ from utils import *
 
 num_flacs = num_mp3s = num_oggs = num_current_songs = num_processed_songs = num_total_songs = 0
 
-library_folder = ""
-
 albums_fetch_queue = deque()
 albums = {}
 options = {}
@@ -371,11 +369,11 @@ while num_albums != last_num_albums:
             if release_id != None:
 
                 if (no_new_albums == False) or ((no_new_albums == True) and (release_id in albums.keys())):
-                    result = RequestRelease(release_id)
+                    release = RequestRelease(release_id)
 
-                    if result is not None:
-                        track = entities.Track(audio,file_ext)
-                        result.add_song(track)
+                    if release is not None:
+                        track = entities.Track(audio,file_ext,release)
+                        release.add_song(track)
                         num_current_songs += 1
 
             elif is_audio_file:
