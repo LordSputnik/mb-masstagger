@@ -2,6 +2,10 @@ import uuid
 import urllib2
 import struct
 import musicbrainzngs as ws
+import copy
+import mutagen.oggvorbis
+import mutagen.flac
+import compatid3
 
 class Track:
     MetadataTags = {
@@ -10,30 +14,50 @@ class Track:
         "id":"musicbrainz_trackid"
     }
 
-    def __init__(self,audio_file,type,release):
+    def __init__(self,audio_file,type):
         self.file = audio_file
         self.ext = type
-        self.release = release
         self.processed_data = {}
         self.discnumber = "0"
         self.tracknumber = "0"
+        self.release = None
 
         if audio_file.has_key("discnumber"):
-            self.discnumber = audio_file["discnumber"][0]
+            self.discnumber = str(audio_file["discnumber"][0])
 
         if audio_file.has_key("tracknumber"):
-            self.tracknumber = audio_file["tracknumber"][0]
+            self.tracknumber = str(audio_file["tracknumber"][0])
 
-    def Save(self):
-        self.__ProcessData()
-        for key,value in self.processed_data.items():
-            print "["+key+"]: "+str(value)
+    def Sync(self):
+        raise NotImplementedError
 
+    def Save(self, options):
+        self.file.save()
 
-    def __ProcessData(self):
+        dest_name = ""
+        disc_string = "{"+":0>{}".format(len(self.processed_data["totaldiscs"][0])) + "}"
+        track_string = "{"+":0>{}".format(len(self.processed_data["totaltracks"][0])) + "}"
+
+        if options["rename-files"]:
+            if int(self.processed_data["totaldiscs"][0]) == 1:
+                dest_name = options["rename-format"]
+                dest_name = dest_name.replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
+            else:
+                dest_name = options["multi-disc-rename-format"]
+                dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
+
+            print dest_name
+
+            os.rename(self.file.filename,os.path.join(options["library-folder"],dest_name))
+
+    def _ProcessData(self):
+        if self.release is None:
+            self.processed_data = None
+            return
+
         release_data = self.release.data
         recording = None
-        self.processed_data = self.release.processed_data
+        self.processed_data = copy.copy(self.release.processed_data)
 
         #Get the recording info for the song.
         total_discs = len(release_data["medium-list"])
@@ -81,6 +105,90 @@ class Track:
                     i ^= 1
                 self.processed_data.setdefault("artistsort", []).append(artist_sort_name)
         return
+
+class MP3Track(Track):
+
+    count = 0
+
+    def Sync(self):
+        self._ProcessData()
+        print "\nMP3"
+        for key,value in sorted(self.processed_data.items()):
+            print "["+key+"]: "+str(value)
+
+class FLACTrack(Track):
+
+    count = 0
+
+    def Sync(self,options):
+        self._ProcessData()
+        print "\nFLAC"
+        for key,value in sorted(self.processed_data.items()):
+            print "["+key+"]: "+str(value)
+
+        if self.processed_data == None:
+            return
+
+        tags = {}
+
+        if options["clear-tags"]:
+            self.file.delete()
+
+        for key,value in self.processed_data.items():
+            tags[key.upper().encode("utf-8")] = value
+
+        cover_art = self.release.art
+
+        if cover_art != None:
+            self.file.clear_pictures();
+            picture = mutagen.flac.Picture()
+            picture.data = cover_art[4]
+            picture.mime = "image/jpeg"
+            picture.desc = ""
+            picture.type = 3
+            self.file.add_picture(picture)
+
+        self.file.update(tags)
+
+
+class OggTrack(Track):
+
+    count = 0
+
+    def Sync(self,options):
+        self._ProcessData()
+        print "\nOgg"
+        for key,value in sorted(self.processed_data.items()):
+            print "["+key+"]: "+str(value)
+
+        if self.processed_data == None:
+            return
+
+        tags = {}
+
+        if options["clear-tags"]:
+            self.file.delete()
+
+        for key,value in self.processed_data.items():
+            tags[key.upper().encode("utf-8")] = value
+
+        cover_art = self.release.art
+        if cover_art != None:
+
+            if self.file.has_key(u"METADATA_BLOCK_PICTURE"):
+                self.file[u"METADATA_BLOCK_PICTURE"] = []
+
+            picture = mutagen.flac.Picture()
+            picture.data = cover_art[4]
+            picture.mime = "image/jpeg"
+            picture.desc = ""
+            picture.type = 3
+            tags.setdefault(u"METADATA_BLOCK_PICTURE", []).append(base64.standard_b64encode(picture.write()))
+
+        self.file.update(tags)
+        SaveFile(song,metadata,song.file[u"tracknumber"][0],"1")
+
+        print "Updating \"" + song.file[u"title"][0] + "\" by " + song.file["artist"][0]
 
 class Release:
     MetadataTags = {

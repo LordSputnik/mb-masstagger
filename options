@@ -5,8 +5,8 @@ move-files=no
 
 -----------
 
-lib-dir="test"
+library-folder="songs"
 
 -----------
 
-clear-tags=no
+clear-tags=yes
