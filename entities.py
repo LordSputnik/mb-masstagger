@@ -15,10 +15,72 @@ class Track:
         self.ext = type
         self.release = release
         self.processed_data = {}
+        self.discnumber = "0"
+        self.tracknumber = "0"
+
+        if audio_file.has_key("discnumber"):
+            self.discnumber = audio_file["discnumber"][0]
+
+        if audio_file.has_key("tracknumber"):
+            self.tracknumber = audio_file["tracknumber"][0]
+
+    def Save(self):
+        self.__ProcessData()
+        for key,value in self.processed_data.items():
+            print "["+key+"]: "+str(value)
+
 
     def __ProcessData(self):
-        return
+        release_data = self.release.data
+        recording = None
+        self.processed_data = self.release.processed_data
 
+        #Get the recording info for the song.
+        total_discs = len(release_data["medium-list"])
+
+        #TODO - Move this out of the function so that we can specialize to the correct tag for each file format. Perhaps put in Song class.
+        if self.discnumber == "0":
+            if total_discs == 1:
+                self.discnumber = "1"
+            else:
+                print "Error, no disc number for multi-disc release!"
+                self.processed_data = None
+                return
+
+        self.processed_data.setdefault("totaldiscs", []).append(str(len(release_data["medium-list"])))
+        for medium in release_data["medium-list"]:
+
+            if medium["position"] == self.discnumber:
+                self.processed_data.setdefault("discnumber", []).append(self.discnumber)
+                self.processed_data.setdefault("totaltracks", []).append(str(len(medium["track-list"])))
+
+                for t in medium["track-list"]:
+
+                    if t["position"] == self.tracknumber:
+                        self.processed_data.setdefault("tracknumber", []).append(self.tracknumber)
+                        recording = t["recording"]
+
+        if recording is None: #Couldn't find the recording - we can't do anything (except maybe look for recording id).
+            self.processed_data = None
+            return
+
+        for key,value in recording.items():
+
+            if self.MetadataTags.has_key(key):
+                self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
+
+            elif key == "artist-credit":
+                i = 0
+                artist_sort_name = ""
+                for c in value:
+                    if i == 0: #artist
+                        artist_sort_name += c["artist"]["sort-name"]
+                        self.processed_data.setdefault("musicbrainz_artistid", []).append(c["artist"]["id"])
+                    else: #join phrase
+                        artist_sort_name += c
+                    i ^= 1
+                self.processed_data.setdefault("artistsort", []).append(artist_sort_name)
+        return
 
 class Release:
     MetadataTags = {

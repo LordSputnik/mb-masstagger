@@ -233,6 +233,8 @@ def SyncFLACMetaData(song,release):
         picture.type = 3
         song.file.add_picture(picture)
 
+
+    song.Save()
     song.file.update(tags)
 
     SaveFile(song,metadata,song.file[u"tracknumber"][0],"1")
@@ -267,6 +269,7 @@ def SyncVorbisMetaData(song,release):
         tags.setdefault(u"METADATA_BLOCK_PICTURE", []).append(base64.standard_b64encode(picture.write()))
 
     song.file.update(tags)
+    song.Save()
     SaveFile(song,metadata,song.file[u"tracknumber"][0],"1")
 
     print "Updating \"" + song.file[u"title"][0] + "\" by " + song.file["artist"][0]
