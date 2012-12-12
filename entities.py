@@ -6,6 +6,7 @@ import copy
 import mutagen.oggvorbis
 import mutagen.flac
 import compatid3
+import base64
 
 class Track:
     MetadataTags = {
@@ -32,6 +33,9 @@ class Track:
         raise NotImplementedError
 
     def Save(self, options):
+        if self.processed_data is None:
+            return
+
         self.file.save()
 
         dest_name = ""
@@ -41,11 +45,10 @@ class Track:
         if options["rename-files"]:
             if int(self.processed_data["totaldiscs"][0]) == 1:
                 dest_name = options["rename-format"]
-                dest_name = dest_name.replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
             else:
                 dest_name = options["multi-disc-rename-format"]
-                dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
 
+            dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
             print dest_name
 
             os.rename(self.file.filename,os.path.join(options["library-folder"],dest_name))
@@ -110,21 +113,24 @@ class MP3Track(Track):
 
     count = 0
 
-    def Sync(self):
-        self._ProcessData()
+    def inc_count(self):
+        return
+        #MP3Track.count += 1
+
+    def Sync(self,options):
+        #self._ProcessData()
+        self.processed_data = None
         print "\nMP3"
-        for key,value in sorted(self.processed_data.items()):
-            print "["+key+"]: "+str(value)
 
 class FLACTrack(Track):
 
     count = 0
 
+    def inc_count(self):
+        FLACTrack.count += 1
+
     def Sync(self,options):
         self._ProcessData()
-        print "\nFLAC"
-        for key,value in sorted(self.processed_data.items()):
-            print "["+key+"]: "+str(value)
 
         if self.processed_data == None:
             return
@@ -150,16 +156,18 @@ class FLACTrack(Track):
 
         self.file.update(tags)
 
+        print "Updating \"" + self.file[u"title"][0] + "\" by " + self.file["artist"][0]
+
 
 class OggTrack(Track):
 
     count = 0
 
+    def inc_count(self):
+        OggTrack.count += 1
+
     def Sync(self,options):
         self._ProcessData()
-        print "\nOgg"
-        for key,value in sorted(self.processed_data.items()):
-            print "["+key+"]: "+str(value)
 
         if self.processed_data == None:
             return
@@ -186,9 +194,8 @@ class OggTrack(Track):
             tags.setdefault(u"METADATA_BLOCK_PICTURE", []).append(base64.standard_b64encode(picture.write()))
 
         self.file.update(tags)
-        SaveFile(song,metadata,song.file[u"tracknumber"][0],"1")
 
-        print "Updating \"" + song.file[u"title"][0] + "\" by " + song.file["artist"][0]
+        print "Updating \"" + self.file[u"title"][0] + "\" by " + self.file["artist"][0]
 
 class Release:
     MetadataTags = {
@@ -284,6 +291,17 @@ class Release:
         #print "Number of components: " + str(image_info[3])
         #print "Bits per Pixel: " + str(image_info[0]*image_info[3])
         return image_info[0],image_info[1],image_info[2],image_info[3],image_content
+
+    def Sync(self,options):
+        if self.data is None:
+            return
+
+        for song in self.songs:
+            song.inc_count()
+            song.Sync(options)
+            song.Save(options)
+
+        return
 
     def add_song(self,audio_file):
         if not self.valid:

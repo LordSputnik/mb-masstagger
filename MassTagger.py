@@ -20,13 +20,13 @@ import urllib2
 import time
 import mutagen.oggvorbis
 import mutagen.flac
-import base64
 from collections import defaultdict
 from collections import deque
 import musicbrainzngs as ws
 import json
 import compatid3
 import entities
+import time
 
 from utils import *
 
@@ -35,7 +35,6 @@ num_current_songs = num_processed_songs = num_total_songs = 0
 albums_fetch_queue = deque()
 albums = {}
 options = {}
-songs = defaultdict(list)
 skipped_files = list()
 num_passes = 0
 
@@ -43,12 +42,10 @@ num_albums = 0
 last_num_albums = None
 no_new_albums = False
 
-song_ids = list()
-
 ValidFileTypes = [
-    ".flac",
-    ".ogg",
-    ".mp3",
+    "flac",
+    "ogg",
+    "mp3",
 ]
 
 def PrintHeader():
@@ -128,43 +125,17 @@ def ReadOptions(file_name):
 def SyncMP3MetaData(song,release):
     return
 
-def SyncFLACMetaData(song,release):
-    entities.FLACTrack.count += 1
-    song.Sync(options)
-    song.Save(options)
-
-    print "Updating \"" + song.file[u"title"][0] + "\" by " + song.file["artist"][0]
-
-    return
-
-def SyncVorbisMetaData(song,release):
-    entities.OggTrack.count += 1
-    song.Sync(options)
-    song.Save(options)
-
-    print "Updating \"" + song.file[u"title"][0] + "\" by " + song.file["artist"][0]
-
-    return
-
-def SyncMetadata(song, release):
+def SyncMetadata(release):
     global num_processed_songs
 
     if not release.valid:
         return
 
-    num_processed_songs += 1
+    for s in release.songs:
+        if s.ext in ValidFileTypes:
+            num_processed_songs += 1
 
-    if song.ext == "mp3":
-        SyncMP3MetaData(song,release)
-
-    elif song.ext == "flac":
-        SyncFLACMetaData(song,release)
-
-    elif song.ext == "ogg":
-        SyncVorbisMetaData(song,release)
-
-    else:
-        num_processed_songs -= 1
+    release.Sync(options)
 
     return
 
@@ -186,7 +157,7 @@ last_time = 0
 
 for dirname, dirnames, filenames in os.walk('.'):
     for filename in filenames:
-        if os.path.splitext(filename)[1] in ValidFileTypes: # Compares extension to valid extensions.
+        if os.path.splitext(filename)[1][1:] in ValidFileTypes: # Compares extension to valid extensions.
             num_total_songs += 1
 
 print ("Found {} songs to update.".format(num_total_songs))
@@ -258,8 +229,7 @@ while num_albums != last_num_albums:
         fetched_release = FetchNextRelease()
         if fetched_release != None:
             print "\nID: " + fetched_release.id + " with " + str(len(fetched_release.songs)) + " songs."
-            for s in fetched_release.songs:
-                SyncMetadata(s,fetched_release)
+            SyncMetadata(fetched_release)
             num_current_songs -= len(fetched_release.songs)
             print ("Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
 
