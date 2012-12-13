@@ -10,3 +10,4 @@ library-folder="songs"
 -----------
 
 clear-tags=no
+remove-ape=yes

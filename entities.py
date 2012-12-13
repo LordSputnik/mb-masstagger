@@ -5,13 +5,16 @@ import musicbrainzngs as ws
 import copy
 import mutagen.oggvorbis
 import mutagen.flac
+import mutagen.id3
 import compatid3
 import base64
+import mutagen.apev2
 
 num_releases = 0
 
 class Track:
     num_loaded = 0
+    num_processed = 0
 
     MetadataTags = {
         "artist-credit-phrase":"artist",
@@ -32,12 +35,16 @@ class Track:
     def ParseDiscAndTrackNumbers(self):
         raise NotImplementedError
 
-    def Sync(self):
+    def Sync(self,options):
         raise NotImplementedError
 
     def Save(self, options):
+        print "Saving!"
         if self.processed_data is None:
+            print "Null!"
             return
+
+        Track.num_processed += 1
 
         self.file.save()
 
@@ -55,6 +62,12 @@ class Track:
             print dest_name
 
             os.rename(self.file.filename,os.path.join(options["library-folder"],dest_name))
+
+        print "Post Saving!"
+        self.PostSave(options)
+
+    def PostSave(self,options):
+        return
 
     def _ProcessData(self):
         if self.release is None:
@@ -117,6 +130,9 @@ class Track:
 class MP3Track(Track):
 
     count = 0
+
+    id3encoding = 1 #use UTF-16 with BOM for now
+
     TranslationTable = {
         'comment'        : 'COMM',
         'albumartistsort': 'TSO2',
@@ -153,10 +169,10 @@ class MP3Track(Track):
     TranslateTextField = {
         'acoustid_fingerprint': 'Acoustid Fingerprint',
         'acoustid_id': 'Acoustid Id',
-        'asin': 'ASIN',
-        'barcode': 'BARCODE',
-        'catalognumber': 'CATALOGNUMBER',
-        'license': 'LICENSE',
+        'asin': 'asin',
+        'barcode': 'barcode',
+        'catalognumber': 'catalognumber',
+        'license': 'license',
         'musicbrainz_albumartistid': 'MusicBrainz Album Artist Id',
         'musicbrainz_albumid': 'MusicBrainz Album Id',
         'musicbrainz_artistid': 'MusicBrainz Artist Id',
@@ -173,8 +189,7 @@ class MP3Track(Track):
     }
 
     def inc_count(self):
-        return
-        #MP3Track.count += 1
+        MP3Track.count += 1
 
     def ParseDiscAndTrackNumbers(self):
         if self.file.has_key("TPOS"):
@@ -183,21 +198,28 @@ class MP3Track(Track):
         if self.file.has_key("TRCK"):
             self.tracknumber = str(self.file["TRCK"][0]).partition("/")[0]
 
-        print self.discnumber + " " + self.tracknumber
-
     def Sync(self,options):
-        print "XX- MP3 -XX"
         self._ProcessData()
-        #self.processed_data = None
+
+        tags = compatid3.CompatID3()
+
+        if options["clear-tags"]:
+            self.file.delete()
+
         for key,value in self.processed_data.items():
             if MP3Track.TranslationTable.has_key(key):
-                print MP3Track.TranslationTable[key] + ": " + value[0]
+                tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value[0]))
             if MP3Track.TranslateTextField.has_key(key):
-                print "TXXX:"+MP3Track.TranslateTextField[key] + ": " + value[0]
+                tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=key, text=value[0]))
 
+        self.file.update(tags)
 
-        print ""
+        print "Updating \"" + str(self.file[MP3Track.TranslationTable["title"]].text[0]) + "\" by " + str(self.file[MP3Track.TranslationTable["artist"]].text[0])
 
+    def PostSave(self,options):
+        if options["remove-ape"]:
+            print "Removing ape!"
+            mutagen.apev2.delete(self.file.filename)
 
 class FLACTrack(Track):
 

@@ -30,7 +30,7 @@ import time
 
 from utils import *
 
-num_processed_songs = num_total_songs = 0
+num_total_songs = 0
 
 albums_fetch_queue = deque()
 albums = {}
@@ -122,18 +122,11 @@ def ReadOptions(file_name):
 ### Metadata Syncing Functions ################
 ###############################################
 
-def SyncMP3MetaData(song,release):
-    return
-
 def SyncMetadata(release):
     global num_processed_songs
 
     if not release.valid:
         return
-
-    for s in release.songs:
-        if s.ext in ValidFileTypes:
-            num_processed_songs += 1
 
     release.Sync(options)
 
@@ -230,7 +223,7 @@ while num_completed_releases != last_num_completed_releases:
             print "\nID: " + fetched_release.id + " with " + str(len(fetched_release.songs)) + " songs."
             SyncMetadata(fetched_release)
             fetched_release.Close()
-            print ("Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, entities.Track.num_loaded, num_processed_songs, num_total_songs))
+            print ("Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, entities.Track.num_loaded, entities.Track.num_processed, num_total_songs))
 
 
     num_completed_releases = len(albums)
