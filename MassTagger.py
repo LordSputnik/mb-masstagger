@@ -30,7 +30,7 @@ import time
 
 from utils import *
 
-num_current_songs = num_processed_songs = num_total_songs = 0
+num_processed_songs = num_total_songs = 0
 
 albums_fetch_queue = deque()
 albums = {}
@@ -38,8 +38,8 @@ options = {}
 skipped_files = list()
 num_passes = 0
 
-num_albums = 0
-last_num_albums = None
+num_completed_releases = 0
+last_num_completed_releases = None
 no_new_albums = False
 
 ValidFileTypes = [
@@ -60,11 +60,11 @@ Starting..."
     return
 
 def FetchNextRelease():
-    global last_time
-    if (time.time() - last_time) < 1:
+    global last_fetch_time
+    if (time.time() - last_fetch_time) < 1:
         return None
 
-    last_time = time.time()
+    last_fetch_time = time.time()
 
     if len(albums_fetch_queue) > 0:
         release_id = albums_fetch_queue.popleft()
@@ -73,7 +73,7 @@ def FetchNextRelease():
         if not result.valid:
             return None
 
-        result.fetch()
+        result.Fetch()
 
         if result.fetched:
             return result
@@ -153,7 +153,7 @@ if os.path.exists("./options"):
 
 #result = ws.get_release_by_id("75b34c4a-1e15-3bf5-a734-abfafa94c731",["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
 #print json.dumps(result, sort_keys=True, indent=4)
-last_time = 0
+last_fetch_time = 0
 
 for dirname, dirnames, filenames in os.walk('.'):
     for filename in filenames:
@@ -163,16 +163,16 @@ for dirname, dirnames, filenames in os.walk('.'):
 print ("Found {} songs to update.".format(num_total_songs))
 print ("Updating...\n")
 
-while num_albums != last_num_albums:
+while num_completed_releases != last_num_completed_releases:
 
-    last_num_albums = len(albums)
+    last_num_completed_releases = len(albums)
     num_passes += 1
 
     for dirname, dirnames, filenames in os.walk('.'):
 
         for filename in filenames:
 
-            if (num_current_songs > 1000) or (len(albums) > 100):
+            if (entities.Track.num_loaded > 1000) or (len(albums) > 100):
                 no_new_albums = True
 
             release_id = None
@@ -217,8 +217,7 @@ while num_albums != last_num_albums:
 
                     if release is not None:
                         track.release = release
-                        release.add_song(track)
-                        num_current_songs += 1
+                        release.AddSong(track)
 
             elif is_audio_file:
                 if str(dirname+"/"+filename) not in skipped_files:
@@ -230,15 +229,13 @@ while num_albums != last_num_albums:
         if fetched_release != None:
             print "\nID: " + fetched_release.id + " with " + str(len(fetched_release.songs)) + " songs."
             SyncMetadata(fetched_release)
-            num_current_songs -= len(fetched_release.songs)
-            print ("Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, num_current_songs, num_processed_songs, num_total_songs))
+            fetched_release.Close()
+            print ("Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, entities.Track.num_loaded, num_processed_songs, num_total_songs))
 
-    for album in albums.values():
-        album.close()
 
-    num_albums = len(albums)
+    num_completed_releases = len(albums)
     no_new_albums = False
-    #print ("Albums processed: " + str(num_albums) + " Last Album Total: " + str(last_num_albums))
+    print ("Albums processed: " + str(num_completed_releases) + " Last Album Total: " + str(last_num_completed_releases))
 
 print ("\n-------------------------------------------------")
 print ("Checked {} MP3s, {} OGGs and {} FLACs.".format(entities.MP3Track.count, entities.OggTrack.count, entities.FLACTrack.count))

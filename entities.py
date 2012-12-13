@@ -8,7 +8,11 @@ import mutagen.flac
 import compatid3
 import base64
 
+num_releases = 0
+
 class Track:
+    num_loaded = 0
+
     MetadataTags = {
         "artist-credit-phrase":"artist",
         "title":"title",
@@ -22,12 +26,11 @@ class Track:
         self.discnumber = "0"
         self.tracknumber = "0"
         self.release = None
+        Track.num_loaded += 1
+        self.ParseDiscAndTrackNumbers()
 
-        if audio_file.has_key("discnumber"):
-            self.discnumber = str(audio_file["discnumber"][0])
-
-        if audio_file.has_key("tracknumber"):
-            self.tracknumber = str(audio_file["tracknumber"][0])
+    def ParseDiscAndTrackNumbers(self):
+        raise NotImplementedError
 
     def Sync(self):
         raise NotImplementedError
@@ -55,6 +58,7 @@ class Track:
 
     def _ProcessData(self):
         if self.release is None:
+            print "ERROR: Release is not set!"
             self.processed_data = None
             return
 
@@ -70,7 +74,7 @@ class Track:
             if total_discs == 1:
                 self.discnumber = "1"
             else:
-                print "Error, no disc number for multi-disc release!"
+                print "ERROR: Couldn't identify medium number!"
                 self.processed_data = None
                 return
 
@@ -88,6 +92,7 @@ class Track:
                         recording = t["recording"]
 
         if recording is None: #Couldn't find the recording - we can't do anything (except maybe look for recording id).
+            print "ERROR: Couldn't identify recording in medium!"
             self.processed_data = None
             return
 
@@ -112,15 +117,87 @@ class Track:
 class MP3Track(Track):
 
     count = 0
+    TranslationTable = {
+        'comment'        : 'COMM',
+        'albumartistsort': 'TSO2',
+        'subtitle'       : 'TIT3',
+        'lyricist'       : 'TEXT',
+        'genre'          : 'TCON',
+        'albumartist'    : 'TPE2',
+        'composer'       : 'TCOM',
+        'encodedby'      : 'TENC',
+        'album'          : 'TALB',
+        'mood'           : 'TMOO',
+        'copyright'      : 'TCOP',
+        'title'          : 'TIT2',
+        'media'          : 'TMED',
+        'label'          : 'TPUB',
+        'artistsort'     : 'TSOP',
+        'titlesort'      : 'TSOT',
+        'discsubtitle'   : 'TSST',
+        'website'        : 'WOAR',
+        'remixer'        : 'TPE4',
+        'conductor'      : 'TPE3',
+        'compilation'    : 'TCMP',
+        'language'       : 'TLAN',
+        'date'           : 'TDRC',
+        'isrc'           : 'TSRC',
+        'originaldate'   : 'TDOR',
+        'license'        : 'WCOP',
+        'artist'         : 'TPE1',
+        'bpm'            : 'TBPM',
+        'albumsort'      : 'TSOA',
+        'grouping'       : 'TIT1',
+    }
+
+    TranslateTextField = {
+        'acoustid_fingerprint': 'Acoustid Fingerprint',
+        'acoustid_id': 'Acoustid Id',
+        'asin': 'ASIN',
+        'barcode': 'BARCODE',
+        'catalognumber': 'CATALOGNUMBER',
+        'license': 'LICENSE',
+        'musicbrainz_albumartistid': 'MusicBrainz Album Artist Id',
+        'musicbrainz_albumid': 'MusicBrainz Album Id',
+        'musicbrainz_artistid': 'MusicBrainz Artist Id',
+        'musicbrainz_discid': 'MusicBrainz Disc Id',
+        'musicbrainz_releasegroupid': 'MusicBrainz Release Group Id',
+        'musicbrainz_trmid': 'MusicBrainz TRM Id',
+        'musicbrainz_workid': 'MusicBrainz Work Id',
+        'musicip_fingerprint': 'MusicMagic Fingerprint',
+        'musicip_puid': 'MusicIP PUID',
+        'releasecountry': 'MusicBrainz Album Release Country',
+        'releasestatus': 'MusicBrainz Album Status',
+        'releasetype': 'MusicBrainz Album Type',
+        'script': 'SCRIPT'
+    }
 
     def inc_count(self):
         return
         #MP3Track.count += 1
 
+    def ParseDiscAndTrackNumbers(self):
+        if self.file.has_key("TPOS"):
+            self.discnumber = str(self.file["TPOS"][0]).partition("/")[0]
+
+        if self.file.has_key("TRCK"):
+            self.tracknumber = str(self.file["TRCK"][0]).partition("/")[0]
+
+        print self.discnumber + " " + self.tracknumber
+
     def Sync(self,options):
-        #self._ProcessData()
-        self.processed_data = None
-        print "\nMP3"
+        print "XX- MP3 -XX"
+        self._ProcessData()
+        #self.processed_data = None
+        for key,value in self.processed_data.items():
+            if MP3Track.TranslationTable.has_key(key):
+                print MP3Track.TranslationTable[key] + ": " + value[0]
+            if MP3Track.TranslateTextField.has_key(key):
+                print "TXXX:"+MP3Track.TranslateTextField[key] + ": " + value[0]
+
+
+        print ""
+
 
 class FLACTrack(Track):
 
@@ -128,6 +205,13 @@ class FLACTrack(Track):
 
     def inc_count(self):
         FLACTrack.count += 1
+
+    def ParseDiscAndTrackNumbers(self):
+        if self.file.has_key("discnumber"):
+            self.discnumber = str(self.file["discnumber"][0])
+
+        if self.file.has_key("tracknumber"):
+            self.tracknumber = str(self.file["tracknumber"][0])
 
     def Sync(self,options):
         self._ProcessData()
@@ -166,6 +250,13 @@ class OggTrack(Track):
     def inc_count(self):
         OggTrack.count += 1
 
+    def ParseDiscAndTrackNumbers(self):
+        if self.file.has_key("discnumber"):
+            self.discnumber = str(self.file["discnumber"][0])
+
+        if self.file.has_key("tracknumber"):
+            self.tracknumber = str(self.file["tracknumber"][0])
+
     def Sync(self,options):
         self._ProcessData()
 
@@ -198,6 +289,8 @@ class OggTrack(Track):
         print "Updating \"" + self.file[u"title"][0] + "\" by " + self.file["artist"][0]
 
 class Release:
+    num_loaded = 0
+
     MetadataTags = {
         "artist-credit-phrase":"albumartist",
         "asin":"asin",
@@ -215,6 +308,7 @@ class Release:
         self.art = None
         self.data = None
         self.processed_data = {}
+        Release.num_loaded += 1
         try:
             uuid.UUID(id_)
         except ValueError:
@@ -224,7 +318,7 @@ class Release:
             self.id = id_
 
 
-    def fetch(self):
+    def Fetch(self):
         if not self.valid:
             return
 
@@ -303,14 +397,16 @@ class Release:
 
         return
 
-    def add_song(self,audio_file):
+    def AddSong(self,audio_file):
         if not self.valid:
             return
 
         self.songs.append(audio_file)
 
-    def close(self):
+    def Close(self):
         if self.valid:
+            Track.num_loaded -= len(self.songs)
+            print str(Track.num_loaded) + ": " + str(len(self.songs))
             self.valid = False
             self.data = None
             self.art = None
