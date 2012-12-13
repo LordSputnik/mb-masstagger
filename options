@@ -9,5 +9,5 @@ library-folder="songs"
 
 -----------
 
-clear-tags=no
+clear-tags=yes
 remove-ape=yes

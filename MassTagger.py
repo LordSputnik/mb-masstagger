@@ -144,8 +144,8 @@ ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
 if os.path.exists("./options"):
     ReadOptions("./options")
 
-#result = ws.get_release_by_id("75b34c4a-1e15-3bf5-a734-abfafa94c731",["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
-#print json.dumps(result, sort_keys=True, indent=4)
+result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
+print json.dumps(result, sort_keys=True, indent=4)
 last_fetch_time = 0
 
 for dirname, dirnames, filenames in os.walk('.'):

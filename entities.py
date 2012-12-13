@@ -91,15 +91,16 @@ class Track:
                 self.processed_data = None
                 return
 
-        self.processed_data.setdefault("totaldiscs", []).append(str(len(release_data["medium-list"])))
         for medium in release_data["medium-list"]:
-
             if medium["position"] == self.discnumber:
                 self.processed_data.setdefault("discnumber", []).append(self.discnumber)
                 self.processed_data.setdefault("totaltracks", []).append(str(len(medium["track-list"])))
 
-                for t in medium["track-list"]:
+                if "format" in medium:
+                    self.processed_data.setdefault("media", []).append(medium["format"])
 
+                for t in medium["track-list"]:
+                    print self.tracknumber
                     if t["position"] == self.tracknumber:
                         self.processed_data.setdefault("tracknumber", []).append(self.tracknumber)
                         recording = t["recording"]
@@ -163,7 +164,7 @@ class MP3Track(Track):
         'artist'         : 'TPE1',
         'bpm'            : 'TBPM',
         'albumsort'      : 'TSOA',
-        'grouping'       : 'TIT1',
+        'grouping'       : 'TIT1'
     }
 
     TranslateTextField = {
@@ -209,8 +210,14 @@ class MP3Track(Track):
         for key,value in self.processed_data.items():
             if MP3Track.TranslationTable.has_key(key):
                 tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value[0]))
-            if MP3Track.TranslateTextField.has_key(key):
+            elif MP3Track.TranslateTextField.has_key(key):
                 tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=key, text=value[0]))
+            elif key == "discnumber":
+                tags.add(mutagen.id3.TPOS(encoding=0, text=value[0]+"/"+self.processed_data["totaldiscs"][0]))
+            elif key == "tracknumber":
+                tags.add(mutagen.id3.TRCK(encoding=0, text=value[0]+"/"+self.processed_data["totaltracks"][0]))
+            elif key == "musicbrainz_trackid":
+                tags.add(mutagen.id3.UFID(owner='http://musicbrainz.org', data=value[0]))
 
         self.file.update(tags)
 
@@ -346,7 +353,7 @@ class Release:
 
         #Get the song metadata from MB Web Service - invalid release if this fails
         try:
-            self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","isrcs","release-groups"])["release"]
+            self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
         except ws.musicbrainz.ResponseError:
             print ("Connection Error!")
             self.data = None
@@ -394,6 +401,14 @@ class Release:
             elif key == "release-group":
                 self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
                 self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
+            elif key == "label-info-list":
+                for label_info in value:
+                    if "label" in label_info:
+                        self.processed_data.setdefault("label", []).append(label_info["label"]["name"])
+                    if "catalog-number" in label_info:
+                        self.processed_data.setdefault("catalognumber", []).append(label_info["catalog-number"])
+
+        self.processed_data.setdefault("totaldiscs", []).append(str(len(self.data["medium-list"])))
 
     def __PackageCoverArt(self,image_content):
         pos = image_content.find(chr(255) + chr(0xC0))
