@@ -38,15 +38,16 @@ class Track:
     def Sync(self,options):
         raise NotImplementedError
 
+    def SaveFunc(self, options):
+        raise NotImplementedError
+
     def Save(self, options):
-        print "Saving!"
         if self.processed_data is None:
-            print "Null!"
             return
 
         Track.num_processed += 1
 
-        self.file.save()
+        self.SaveFunc(options)
 
         dest_name = ""
         disc_string = "{"+":0>{}".format(len(self.processed_data["totaldiscs"][0])) + "}"
@@ -63,7 +64,6 @@ class Track:
 
             os.rename(self.file.filename,os.path.join(options["library-folder"],dest_name))
 
-        print "Post Saving!"
         self.PostSave(options)
 
     def PostSave(self,options):
@@ -100,7 +100,6 @@ class Track:
                     self.processed_data.setdefault("media", []).append(medium["format"])
 
                 for t in medium["track-list"]:
-                    print self.tracknumber
                     if t["position"] == self.tracknumber:
                         self.processed_data.setdefault("tracknumber", []).append(self.tracknumber)
                         recording = t["recording"]
@@ -199,8 +198,17 @@ class MP3Track(Track):
         if self.file.has_key("TRCK"):
             self.tracknumber = str(self.file["TRCK"][0]).partition("/")[0]
 
+    def SaveFunc(self, options):
+        if options["id3version"] == "2.3":
+            self.file.save(v1=0, v2=3)
+        elif options["id3version"] == "2.4":
+            self.file.save(v1=0, v2=4)
+
     def Sync(self,options):
         self._ProcessData()
+
+        if self.processed_data == None:
+            return
 
         tags = compatid3.CompatID3()
 
@@ -211,7 +219,7 @@ class MP3Track(Track):
             if MP3Track.TranslationTable.has_key(key):
                 tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value[0]))
             elif MP3Track.TranslateTextField.has_key(key):
-                tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=key, text=value[0]))
+                tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=MP3Track.TranslateTextField[key], text=value[0]))
             elif key == "discnumber":
                 tags.add(mutagen.id3.TPOS(encoding=0, text=value[0]+"/"+self.processed_data["totaldiscs"][0]))
             elif key == "tracknumber":
@@ -219,13 +227,21 @@ class MP3Track(Track):
             elif key == "musicbrainz_trackid":
                 tags.add(mutagen.id3.UFID(owner='http://musicbrainz.org', data=value[0]))
 
+        if self.release.art != None:
+            self.file.delall("APIC")
+            tags.add(mutagen.id3.APIC(encoding=0, mime="image/jpeg", type=3, desc="", data=self.release.art[4]))
+
         self.file.update(tags)
+
+        if options["id3version"] == "2.3":
+            self.file.update_to_v23()
+        elif options["id3version"] == "2.4":
+            self.file.update_to_v24()
 
         print "Updating \"" + str(self.file[MP3Track.TranslationTable["title"]].text[0]) + "\" by " + str(self.file[MP3Track.TranslationTable["artist"]].text[0])
 
     def PostSave(self,options):
         if options["remove-ape"]:
-            print "Removing ape!"
             mutagen.apev2.delete(self.file.filename)
 
 class FLACTrack(Track):
@@ -241,6 +257,9 @@ class FLACTrack(Track):
 
         if self.file.has_key("tracknumber"):
             self.tracknumber = str(self.file["tracknumber"][0])
+
+    def SaveFunc(self, options):
+        self.file.save()
 
     def Sync(self,options):
         self._ProcessData()
@@ -285,6 +304,9 @@ class OggTrack(Track):
 
         if self.file.has_key("tracknumber"):
             self.tracknumber = str(self.file["tracknumber"][0])
+
+    def SaveFunc(self, options):
+        self.file.save()
 
     def Sync(self,options):
         self._ProcessData()
@@ -407,6 +429,11 @@ class Release:
                         self.processed_data.setdefault("label", []).append(label_info["label"]["name"])
                     if "catalog-number" in label_info:
                         self.processed_data.setdefault("catalognumber", []).append(label_info["catalog-number"])
+            elif key == "text-representation":
+                if "language" in value:
+                    self.processed_data.setdefault("language", []).append(value["language"])
+                if "script" in value:
+                    self.processed_data.setdefault("script", []).append(value["script"])
 
         self.processed_data.setdefault("totaldiscs", []).append(str(len(self.data["medium-list"])))
 
@@ -443,7 +470,6 @@ class Release:
     def Close(self):
         if self.valid:
             Track.num_loaded -= len(self.songs)
-            print str(Track.num_loaded) + ": " + str(len(self.songs))
             self.valid = False
             self.data = None
             self.art = None

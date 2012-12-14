@@ -144,8 +144,8 @@ ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
 if os.path.exists("./options"):
     ReadOptions("./options")
 
-result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
-print json.dumps(result, sort_keys=True, indent=4)
+#result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
+#print json.dumps(result, sort_keys=True, indent=4)
 last_fetch_time = 0
 
 for dirname, dirnames, filenames in os.walk('.'):
@@ -178,18 +178,24 @@ while num_completed_releases != last_num_completed_releases:
                 try:
                     audio = compatid3.CompatID3(dirname+"/"+filename)
                 except mutagen.id3.ID3NoHeaderError:
-                    print ("Invalid MP3 File")
+                    print ("Invalid MP3 File: " + dirname+"/"+filename)
                 else:
                     is_audio_file = True
-                    if audio.has_key("TXXX:musicbrainz_albumid"):
-                        release_id = str(audio["TXXX:musicbrainz_albumid"])
+                    if audio.has_key("TXXX:MusicBrainz Album Id"):
+                        release_id = str(audio["TXXX:MusicBrainz Album Id"])
                         track = entities.MP3Track(audio,file_ext)
+                    else:
+                        print "Song: " + audio.filename + " doesn't have tag:"
+                        for key,value in audio.items():
+                            if str(key)[0:4] != "APIC":
+                                print "K: " + str(key) + " V: " + str(value)
+
 
             elif file_ext == "flac":
                 try:
                     audio = mutagen.flac.FLAC(dirname+"/"+filename)
                 except mutagen.flac.FLACNoHeaderError:
-                    print ("Invalid FLAC File")
+                    print ("Invalid FLAC File: " + dirname+"/"+filename)
                 else:
                     is_audio_file = True
                     if audio.has_key("musicbrainz_albumid"):
@@ -228,7 +234,7 @@ while num_completed_releases != last_num_completed_releases:
 
     num_completed_releases = len(albums)
     no_new_albums = False
-    print ("Albums processed: " + str(num_completed_releases) + " Last Album Total: " + str(last_num_completed_releases))
+    #print ("Albums processed: " + str(num_completed_releases) + " Last Album Total: " + str(last_num_completed_releases))
 
 print ("\n-------------------------------------------------")
 print ("Checked {} MP3s, {} OGGs and {} FLACs.".format(entities.MP3Track.count, entities.OggTrack.count, entities.FLACTrack.count))

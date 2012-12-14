@@ -11,3 +11,4 @@ library-folder="songs"
 
 clear-tags=yes
 remove-ape=yes
+id3version="2.3"
