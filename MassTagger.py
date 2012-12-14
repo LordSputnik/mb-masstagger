@@ -205,11 +205,16 @@ while num_completed_releases != last_num_completed_releases:
                         track = entities.FLACTrack(audio,file_ext)
 
             elif file_ext == "ogg":
-                audio = mutagen.oggvorbis.OggVorbis(dirname+"/"+filename)
-                if audio.has_key("musicbrainz_albumid"):
+                try:
+                    audio = mutagen.oggvorbis.OggVorbis(dirname+"/"+filename)
+                except mutagen.oggvorbis.OggVorbisHeaderError:
+                    print ("Invalid Ogg File: " + dirname+"/"+filename)
+                else:
                     is_audio_file = True
-                    release_id = str(audio["musicbrainz_albumid"][0])
-                    track = entities.OggTrack(audio,file_ext)
+                    if audio.has_key("musicbrainz_albumid"):
+                        is_audio_file = True
+                        release_id = str(audio["musicbrainz_albumid"][0])
+                        track = entities.OggTrack(audio,file_ext)
 
             if release_id != None:
 
