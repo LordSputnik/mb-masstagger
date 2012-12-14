@@ -65,11 +65,13 @@ class Track:
             dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
             print dest_name
 
-            if not os.path.exists(options["library-folder"]):
-                os.makedirs(options["library-folder"])
+            dest_path = os.path.join(options["library-folder"],dest_name)
+            print os.path.split(dest_path)[0]
+            if not os.path.exists(os.path.split(dest_path)[0]):
+                os.makedirs(os.path.split(dest_path)[0])
 
-            os.rename(self.file.filename,os.path.join(options["library-folder"],dest_name))
-            self.file.filename = os.path.join(options["library-folder"],dest_name)
+            os.rename(self.file.filename,dest_path)
+            self.file.filename = dest_path
 
         self.PostSave(options)
 

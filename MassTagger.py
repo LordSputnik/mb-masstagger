@@ -143,6 +143,8 @@ ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
 
 if os.path.exists("./options"):
     ReadOptions("./options")
+elif os.path.exists("./options.default"):
+    ReadOptions("./options.default")
 
 #result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
 #print json.dumps(result, sort_keys=True, indent=4)
