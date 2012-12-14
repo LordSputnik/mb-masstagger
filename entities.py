@@ -51,8 +51,10 @@ class Track:
         self.SaveFunc(options)
 
         dest_name = ""
-        disc_string = "{"+":0>{}".format(len(self.processed_data["totaldiscs"][0])) + "}"
-        track_string = "{"+":0>{}".format(len(self.processed_data["totaltracks"][0])) + "}"
+        disc_field_width = min(max(len(self.processed_data["totaldiscs"][0]), int(options["min-disc-zero-pad"])), 10)
+        track_field_width = min(max(len(self.processed_data["totaltracks"][0]), int(options["min-track-zero-pad"])), 10)
+        disc_string = "{"+":0>{}".format(disc_field_width) + "}"
+        track_string = "{"+":0>{}".format(track_field_width) + "}"
 
         if options["rename-files"]:
             if int(self.processed_data["totaldiscs"][0]) == 1:
@@ -63,7 +65,11 @@ class Track:
             dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
             print dest_name
 
+            if not os.path.exists(options["library-folder"]):
+                os.makedirs(options["library-folder"])
+
             os.rename(self.file.filename,os.path.join(options["library-folder"],dest_name))
+            self.file.filename = os.path.join(options["library-folder"],dest_name)
 
         self.PostSave(options)
 

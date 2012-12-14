@@ -1,4 +1,4 @@
-rename-files=no
+rename-files=yes
 rename-format="#. T"
 multi-disc-rename-format="D-#. T"
 move-files=no
@@ -12,3 +12,8 @@ library-folder="songs"
 clear-tags=yes
 remove-ape=yes
 id3version="2.3"
+
+-----------
+And yes, you can actually type strings in here! Here's Nikki's pedantic zero filling options...
+min-track-zero-pad="0"
+min-disc-zero-pad="0"
