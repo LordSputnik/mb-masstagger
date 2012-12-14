@@ -10,6 +10,7 @@ import compatid3
 import base64
 import os
 import mutagen.apev2
+import utils
 
 num_releases = 0
 
@@ -23,8 +24,12 @@ class Track:
         "id":"musicbrainz_trackid"
     }
 
-    def __init__(self,audio_file,type):
+    def __init__(self,audio_file,type,options):
         self.file = audio_file
+
+        self.directory = os.path.dirname(self.file.filename)
+
+
         self.ext = type
         self.processed_data = {}
         self.discnumber = "0"
@@ -50,6 +55,8 @@ class Track:
 
         self.SaveFunc(options)
 
+        ascii_title = utils.sanitize_filename(utils.asciipunct(self.processed_data["title"][0])).encode("ascii","replace")
+
         dest_name = ""
         disc_field_width = min(max(len(self.processed_data["totaldiscs"][0]), int(options["min-disc-zero-pad"])), 10)
         track_field_width = min(max(len(self.processed_data["totaltracks"][0]), int(options["min-track-zero-pad"])), 10)
@@ -62,13 +69,16 @@ class Track:
             else:
                 dest_name = options["multi-disc-rename-format"]
 
-            dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(self.processed_data["title"][0],self.ext))
+            dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(ascii_title,self.ext))
             print dest_name
 
-            dest_path = os.path.join(options["library-folder"],dest_name)
-            print os.path.split(dest_path)[0]
-            if not os.path.exists(os.path.split(dest_path)[0]):
-                os.makedirs(os.path.split(dest_path)[0])
+            if options["move-files"]:
+                dest_path = os.path.join(options["library-folder"],dest_name)
+                print os.path.dirname(dest_path)
+                if not os.path.exists(os.path.dirname(dest_path)):
+                    os.makedirs(os.path.dirname(dest_path))
+            else:
+                dest_path = os.path.join(self.directory,dest_name)
 
             os.rename(self.file.filename,dest_path)
             self.file.filename = dest_path
@@ -247,7 +257,7 @@ class MP3Track(Track):
         elif options["id3version"] == "2.4":
             self.file.update_to_v24()
 
-        print "Updating \"" + str(self.file[MP3Track.TranslationTable["title"]].text[0]) + "\" by " + str(self.file[MP3Track.TranslationTable["artist"]].text[0])
+        print "Updating \"" + unicode(self.file[MP3Track.TranslationTable["title"]].text[0]).encode("ascii","ignore") + "\" by " + unicode(self.file[MP3Track.TranslationTable["artist"]].text[0]).encode("ascii","ignore")
 
     def PostSave(self,options):
         if options["remove-ape"]:
@@ -297,7 +307,7 @@ class FLACTrack(Track):
 
         self.file.update(tags)
 
-        print "Updating \"" + self.file[u"title"][0] + "\" by " + self.file["artist"][0]
+        print "Updating \"" + unicode(self.file[u"title"][0]).encode("ascii","ignore") + "\" by " + unicode(self.file["artist"][0]).encode("ascii","ignore")
 
 
 class OggTrack(Track):
@@ -346,7 +356,7 @@ class OggTrack(Track):
 
         self.file.update(tags)
 
-        print "Updating \"" + self.file[u"title"][0] + "\" by " + self.file["artist"][0]
+        print "Updating \"" + unicode(self.file[u"title"][0]).encode("ascii","ignore") + "\" by " + unicode(self.file["artist"][0]).encode("ascii","ignore")
 
 class Release:
     num_loaded = 0

@@ -146,11 +146,11 @@ if os.path.exists("./options"):
 elif os.path.exists("./options.default"):
     ReadOptions("./options.default")
 
-#result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
-#print json.dumps(result, sort_keys=True, indent=4)
+result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
+print json.dumps(result, sort_keys=True, indent=4)
 last_fetch_time = 0
 
-for dirname, dirnames, filenames in os.walk('.'):
+for dirname, dirnames, filenames in os.walk("./"+options["library-folder"]):
     for filename in filenames:
         if os.path.splitext(filename)[1][1:] in ValidFileTypes: # Compares extension to valid extensions.
             num_total_songs += 1
@@ -163,7 +163,7 @@ while num_completed_releases != last_num_completed_releases:
     last_num_completed_releases = len(albums)
     num_passes += 1
 
-    for dirname, dirnames, filenames in os.walk('.'):
+    for dirname, dirnames, filenames in os.walk("./"+options["library-folder"]):
 
         for filename in filenames:
 
@@ -185,7 +185,7 @@ while num_completed_releases != last_num_completed_releases:
                     is_audio_file = True
                     if audio.has_key("TXXX:MusicBrainz Album Id"):
                         release_id = str(audio["TXXX:MusicBrainz Album Id"])
-                        track = entities.MP3Track(audio,file_ext)
+                        track = entities.MP3Track(audio,file_ext,options)
                     else:
                         print "Song: " + audio.filename + " doesn't have tag:"
                         for key,value in audio.items():
@@ -202,7 +202,7 @@ while num_completed_releases != last_num_completed_releases:
                     is_audio_file = True
                     if audio.has_key("musicbrainz_albumid"):
                         release_id = str(audio["musicbrainz_albumid"][0])
-                        track = entities.FLACTrack(audio,file_ext)
+                        track = entities.FLACTrack(audio,file_ext,options)
 
             elif file_ext == "ogg":
                 try:
@@ -214,7 +214,7 @@ while num_completed_releases != last_num_completed_releases:
                     if audio.has_key("musicbrainz_albumid"):
                         is_audio_file = True
                         release_id = str(audio["musicbrainz_albumid"][0])
-                        track = entities.OggTrack(audio,file_ext)
+                        track = entities.OggTrack(audio,file_ext,options)
 
             if release_id != None:
 
