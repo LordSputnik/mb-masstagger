@@ -8,6 +8,7 @@ import mutagen.flac
 import mutagen.id3
 import compatid3
 import base64
+import os
 import mutagen.apev2
 
 num_releases = 0
