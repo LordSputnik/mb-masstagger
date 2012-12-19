@@ -64,7 +64,7 @@ class Track:
         self._handle_filesystem_options(options)
 
         self.PostSave(options)
-    
+
     def _parse_filename_script(self, format_string, options):
         result = unicode(copy.copy(format_string))
 
@@ -74,15 +74,15 @@ class Track:
         track_string = unicode("{"+":0>{}".format(track_field_width) + "}")
 
 
-        
+
         for key,value in scripting_variables.items():
             result = result.replace(unicode(key),utils.sanitize_filename(unicode(self.processed_data[value][0])))
-        
-        result = result.replace(u"%disc%",disc_string.format(self.processed_data["discnumber"][0]))    
+
+        result = result.replace(u"%disc%",disc_string.format(self.processed_data["discnumber"][0]))
         result = result.replace(u"%track%",track_string.format(self.processed_data["tracknumber"][0]))
-        
+
         return result
-        
+
 
     def _script_to_filename(self, format_string, options):
         #Do format script replacing here.
@@ -109,7 +109,7 @@ class Track:
                 new_dirname = os.path.normpath(new_dirname)
         else:
             new_dirname = os.path.dirname(self.file.filename)
-        
+
         new_filename, ext = os.path.splitext(os.path.basename(self.file.filename))
 
         if options["rename_files"]:
@@ -153,7 +153,7 @@ class Track:
             tmp_filename = self.filename
             i = 1
             while (not utils.pathcmp(self.file.filename, self.filename + ext) and os.path.exists(utils.encode_filename(self.filename + ext))):
-                self.filename = "{} ({})".format(tmp_filename, i)
+                self.filename = u"{} ({})".format(tmp_filename, i)
                 i += 1
             self.filename = self.filename + ext
             common = os.path.commonprefix(list((os.path.dirname(self.file.filename),os.path.dirname(self.filename))))
@@ -448,10 +448,10 @@ class OggTrack(Track):
             tags[key.upper().encode("utf-8")] = value
 
         cover_art = self.release.art
-        
+
         if options["clear-tags"]:
             self.file.delete()
-        
+
         if cover_art != None:
 
             if self.file.has_key(u"METADATA_BLOCK_PICTURE"):

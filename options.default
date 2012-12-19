@@ -7,15 +7,15 @@ rename_format="%album_artist%/%release%/%track%. %track_title%"
 multi-disc_rename_format="%album_artist%/%release%/%disc%/%track%. %track_title%"
 
 move_files=yes
-library_folder="/home/ben/Programming/GIT/mb-masstagger/test/FLAC"
+library_folder="test/MP3"
 
-ascii_filenames=yes
+ascii_filenames=no
 windows_compatible_filenames=yes
 delete_empty_dirs=yes
 
 -----------
 
-clear-tags=yes
+clear-tags=no
 remove-ape=yes
 id3version="2.3"
 

@@ -156,7 +156,7 @@ if os.path.isdir(options["library_folder"]):
     options["library_folder"] = os.path.realpath(options["library_folder"])
 else:
     options["library_folder"] = os.path.realpath("./")
-    
+
 ignores = list()
 for dirname, dirnames, filenames in os.walk(options["library_folder"]):
     if "warp-ignore" in filenames:
@@ -189,7 +189,7 @@ while num_completed_releases != last_num_completed_releases:
             file_ext = os.path.splitext(filename)[1][1:]
             is_audio_file = False
 
-            abs_file_path = os.path.realpath(os.path.join(dirname,filename))
+            abs_file_path = unicode(os.path.realpath(os.path.join(dirname,filename)),encoding="utf-8")
             if file_ext == "mp3":
                 try:
                     audio = Warp.compatid3.CompatID3(abs_file_path)
