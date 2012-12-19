@@ -41,7 +41,6 @@ class Track:
         self.discnumber = "0"
         self.tracknumber = "0"
         self.release = None
-        Track.num_loaded += 1
         self.ParseDiscAndTrackNumbers()
 
     def ParseDiscAndTrackNumbers(self):
@@ -239,7 +238,7 @@ class Track:
 
         for key,value in recording.items():
 
-            if self.MetadataTags.has_key(key):
+            if key in self.MetadataTags:
                 self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
 
             elif key == "artist-credit":
@@ -320,10 +319,10 @@ class MP3Track(Track):
         MP3Track.count += 1
 
     def ParseDiscAndTrackNumbers(self):
-        if self.file.has_key("TPOS"):
+        if "TPOS" in self.file:
             self.discnumber = str(self.file["TPOS"][0]).partition("/")[0]
 
-        if self.file.has_key("TRCK"):
+        if "TRCK" in self.file:
             self.tracknumber = str(self.file["TRCK"][0]).partition("/")[0]
 
     def SaveFunc(self, options):
@@ -341,9 +340,9 @@ class MP3Track(Track):
         tags = compatid3.CompatID3()
 
         for key,value in self.processed_data.items():
-            if MP3Track.TranslationTable.has_key(key):
+            if key in MP3Track.TranslationTable:
                 tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value[0]))
-            elif MP3Track.TranslateTextField.has_key(key):
+            elif key in MP3Track.TranslateTextField:
                 tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=MP3Track.TranslateTextField[key], text=value[0]))
             elif key == "discnumber":
                 tags.add(mutagen.id3.TPOS(encoding=0, text=value[0]+"/"+self.processed_data["totaldiscs"][0]))
@@ -380,10 +379,10 @@ class FLACTrack(Track):
         FLACTrack.count += 1
 
     def ParseDiscAndTrackNumbers(self):
-        if self.file.has_key("discnumber"):
+        if "discnumber" in self.file:
             self.discnumber = str(self.file["discnumber"][0])
 
-        if self.file.has_key("tracknumber"):
+        if "tracknumber" in self.file:
             self.tracknumber = str(self.file["tracknumber"][0])
 
     def SaveFunc(self, options):
@@ -427,10 +426,10 @@ class OggTrack(Track):
         OggTrack.count += 1
 
     def ParseDiscAndTrackNumbers(self):
-        if self.file.has_key("discnumber"):
+        if "discnumber" in self.file:
             self.discnumber = str(self.file["discnumber"][0])
 
-        if self.file.has_key("tracknumber"):
+        if "tracknumber" in self.file:
             self.tracknumber = str(self.file["tracknumber"][0])
 
     def SaveFunc(self, options):
@@ -454,7 +453,7 @@ class OggTrack(Track):
 
         if cover_art != None:
 
-            if self.file.has_key(u"METADATA_BLOCK_PICTURE"):
+            if u"METADATA_BLOCK_PICTURE" in self.file:
                 self.file[u"METADATA_BLOCK_PICTURE"] = []
 
             picture = mutagen.flac.Picture()

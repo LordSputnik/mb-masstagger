@@ -28,6 +28,7 @@ class Release:
         self.art = None
         self.data = None
         self.processed_data = {}
+        self.fetch_attempts = 0
         Release.num_loaded += 1
         try:
             uuid.UUID(id_)
@@ -42,6 +43,8 @@ class Release:
         if not self.valid:
             return
 
+        self.fetch_attempts += 1
+        
         #Get the song metadata from MB Web Service - invalid release if this fails
         try:
             self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","release-groups","media"])["release"]
@@ -74,7 +77,7 @@ class Release:
 
     def __ProcessData(self):
         for key,value in self.data.items():
-            if self.MetadataTags.has_key(key):
+            if key in self.MetadataTags:
                 self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
             elif key == "artist-credit":
                 i = 0
@@ -90,8 +93,10 @@ class Release:
             elif key == "status":
                 self.processed_data.setdefault("releasestatus", []).append(value.lower())
             elif key == "release-group":
-                self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
-                self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
+                if "first-release-data" in value:
+                    self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
+                if "type" in value:
+                    self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
             elif key == "label-info-list":
                 for label_info in value:
                     if "label" in label_info:
@@ -134,6 +139,7 @@ class Release:
         if not self.valid:
             return
 
+        track.Track.num_loaded += 1
         self.songs.append(audio_file)
 
     def Close(self):

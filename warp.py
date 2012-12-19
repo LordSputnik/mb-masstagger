@@ -17,6 +17,7 @@
 
 import json
 import time
+import os
 
 from collections import deque
 
@@ -78,9 +79,17 @@ def FetchNextRelease():
         result.Fetch()
 
         if result.fetched:
+            new_id = result.processed_data["musicbrainz_albumid"][0]
+            albums[new_id] = result #Add a new entry if the album id changes, so we don't unnecessarily rescan songs in the second pass.
             return result
 
         else:
+            if result.fetch_attempts < int(options["max_fetch_attemps"]):
+                albums_fetch_queue.append(result.id) #Re-add to the back of the queue if attempts < max_attempts
+            else:
+                for s in result.songs:
+                    skipped_files.append(s.file.filename)
+                result.Close()
             return None
     else:
         return None
@@ -181,7 +190,10 @@ while num_completed_releases != last_num_completed_releases:
         for filename in filenames:
 
             if (Warp.track.Track.num_loaded > 1000) or (len(albums) > 100):
+                print "No New Albums Set!"
                 no_new_albums = True
+            else:
+                print "Songs: {} Albums: {}".format(Warp.track.Track.num_loaded,len(albums)) 
 
             release_id = None
             audio = None
@@ -191,41 +203,44 @@ while num_completed_releases != last_num_completed_releases:
 
             abs_file_path = unicode(os.path.realpath(os.path.join(dirname,filename)),encoding="utf-8")
             if file_ext == "mp3":
+                is_audio_file = True
                 try:
                     audio = Warp.compatid3.CompatID3(abs_file_path)
                 except mutagen.id3.ID3NoHeaderError:
                     print ("Invalid MP3 File: " + abs_file_path)
                 else:
-                    is_audio_file = True
-                    if audio.has_key("TXXX:MusicBrainz Album Id"):
+                    if "TXXX:MusicBrainz Album Id" in audio:
                         release_id = str(audio["TXXX:MusicBrainz Album Id"])
-                        track = Warp.track.MP3Track(audio,file_ext,options)
+                    elif "TXXX:musicbrainz_albumid" in audio:
+                        release_id = str(audio["TXXX:musicbrainz_albumid"])
                     else:
                         print "Song: " + audio.filename + " doesn't have tag:"
                         for key,value in audio.items():
                             if str(key)[0:4] != "APIC":
                                 print "K: " + str(key) + " V: " + str(value)
-
+                    if release_id is not None:
+                        track = Warp.track.MP3Track(audio,file_ext,options)
 
             elif file_ext == "flac":
+                is_audio_file = True
                 try:
                     audio = mutagen.flac.FLAC(abs_file_path)
                 except mutagen.flac.FLACNoHeaderError:
                     print ("Invalid FLAC File: " + abs_file_path)
                 else:
-                    is_audio_file = True
-                    if audio.has_key("musicbrainz_albumid"):
+                    if "musicbrainz_albumid" in audio:
                         release_id = str(audio["musicbrainz_albumid"][0])
                         track = Warp.track.FLACTrack(audio,file_ext,options)
 
             elif file_ext == "ogg":
+                is_audio_file = True
                 try:
                     audio = mutagen.oggvorbis.OggVorbis(abs_file_path)
                 except mutagen.oggvorbis.OggVorbisHeaderError:
                     print ("Invalid Ogg File: " + abs_file_path)
                 else:
                     is_audio_file = True
-                    if audio.has_key("musicbrainz_albumid"):
+                    if "musicbrainz_albumid" in audio:
                         is_audio_file = True
                         release_id = str(audio["musicbrainz_albumid"][0])
                         track = Warp.track.OggTrack(audio,file_ext,options)
@@ -240,8 +255,8 @@ while num_completed_releases != last_num_completed_releases:
                         release.AddSong(track)
 
             elif is_audio_file:
-                if str(dirname+"/"+filename) not in skipped_files:
-                    skipped_files.append(str(dirname+"/"+filename))
+                if abs_file_path not in skipped_files:
+                    skipped_files.append(abs_file_path)
 
 
     while len(albums_fetch_queue) > 0:
