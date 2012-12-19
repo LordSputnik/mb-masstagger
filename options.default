@@ -1,11 +1,17 @@
-rename-files=yes
-rename-format="#. T"
-multi-disc-rename-format="D-#. T"
-move-files=no
+
 
 -----------
 
-library-folder="test"
+rename_files=yes
+rename_format="%album_artist%/%release%/%track%. %track_title%"
+multi-disc_rename_format="%album_artist%/%release%/%disc%/%track%. %track_title%"
+
+move_files=yes
+library_folder="/home/ben/Programming/GIT/mb-masstagger/test/FLAC"
+
+ascii_filenames=yes
+windows_compatible_filenames=yes
+delete_empty_dirs=yes
 
 -----------
 

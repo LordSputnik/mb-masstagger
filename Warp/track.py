@@ -1,18 +1,23 @@
-import uuid
-import urllib2
-import struct
-import musicbrainzngs as ws
-import copy
-import mutagen.oggvorbis
-import mutagen.flac
-import mutagen.id3
-import compatid3
 import base64
 import os
-import mutagen.apev2
-import utils
+import copy
+import sys
+import unicodedata
+import shutil
 
-num_releases = 0
+import mutagen.flac
+import mutagen.id3
+import mutagen.apev2
+
+import utils
+import compatid3
+
+scripting_variables = {
+    u"%track_title%":"title",
+    u"%artist%":"artist",
+    u"%album_artist%":"albumartist",
+    u"%release%":"album"
+}
 
 class Track:
     num_loaded = 0
@@ -24,13 +29,14 @@ class Track:
         "id":"musicbrainz_trackid"
     }
 
-    def __init__(self,audio_file,type,options):
+    def __init__(self,audio_file,file_ext,options):
         self.file = audio_file
+        self.filename = ""
 
         self.directory = os.path.dirname(self.file.filename)
 
 
-        self.ext = type
+        self.ext = file_ext
         self.processed_data = {}
         self.discnumber = "0"
         self.tracknumber = "0"
@@ -55,35 +61,138 @@ class Track:
 
         self.SaveFunc(options)
 
-        ascii_title = utils.sanitize_filename(utils.asciipunct(self.processed_data["title"][0])).encode("ascii","replace")
-
-        dest_name = ""
-        disc_field_width = min(max(len(self.processed_data["totaldiscs"][0]), int(options["min-disc-zero-pad"])), 10)
-        track_field_width = min(max(len(self.processed_data["totaltracks"][0]), int(options["min-track-zero-pad"])), 10)
-        disc_string = "{"+":0>{}".format(disc_field_width) + "}"
-        track_string = "{"+":0>{}".format(track_field_width) + "}"
-
-        if options["rename-files"]:
-            if int(self.processed_data["totaldiscs"][0]) == 1:
-                dest_name = options["rename-format"]
-            else:
-                dest_name = options["multi-disc-rename-format"]
-
-            dest_name = dest_name.replace("D",disc_string.format(self.discnumber)).replace("#",track_string.format(self.tracknumber)).replace("T","{}.{}".format(ascii_title,self.ext))
-            print dest_name
-
-            if options["move-files"]:
-                dest_path = os.path.join(options["library-folder"],dest_name)
-                print os.path.dirname(dest_path)
-                if not os.path.exists(os.path.dirname(dest_path)):
-                    os.makedirs(os.path.dirname(dest_path))
-            else:
-                dest_path = os.path.join(self.directory,dest_name)
-
-            os.rename(self.file.filename,dest_path)
-            self.file.filename = dest_path
+        self._handle_filesystem_options(options)
 
         self.PostSave(options)
+    
+    def _parse_filename_script(self, format_string, options):
+        result = unicode(copy.copy(format_string))
+
+        disc_field_width = min(max(len(self.processed_data["totaldiscs"][0]), int(options["min-disc-zero-pad"])), 10)
+        track_field_width = min(max(len(self.processed_data["totaltracks"][0]), int(options["min-track-zero-pad"])), 10)
+        disc_string = unicode("{"+":0>{}".format(disc_field_width) + "}")
+        track_string = unicode("{"+":0>{}".format(track_field_width) + "}")
+
+
+        
+        for key,value in scripting_variables.items():
+            result = result.replace(unicode(key),utils.sanitize_filename(unicode(self.processed_data[value][0])))
+        
+        result = result.replace(u"%disc%",disc_string.format(self.processed_data["discnumber"][0]))    
+        result = result.replace(u"%track%",track_string.format(self.processed_data["tracknumber"][0]))
+        
+        return result
+        
+
+    def _script_to_filename(self, format_string, options):
+        #Do format script replacing here.
+        filename = self._parse_filename_script(format_string, options)
+
+        filename = filename.replace("\x00", "").replace("\t", "").replace("\n", "")
+
+        # replace incompatible characters
+        if options["windows_compatible_filenames"] or sys.platform == "win32":
+            filename = utils.replace_win32_incompat(filename)
+
+        if options["ascii_filenames"]:
+            if isinstance(filename, unicode):
+                filename = utils.unaccent(filename)
+            filename = utils.replace_non_ascii(filename)
+
+        return filename
+
+    def _make_filename(self, options):
+        """Constructs file name based on metadata and file naming formats."""
+        if options["move_files"]:
+            new_dirname = options["library_folder"]
+            if not os.path.isabs(new_dirname):
+                new_dirname = os.path.normpath(new_dirname)
+        else:
+            new_dirname = os.path.dirname(self.file.filename)
+        
+        new_filename, ext = os.path.splitext(os.path.basename(self.file.filename))
+
+        if options["rename_files"]:
+
+            # expand the naming format
+            if int(self.processed_data["totaldiscs"][0]) > 1:
+                format_string = options['multi-disc_rename_format']
+            else:
+                format_string = options['rename_format']
+            if len(format_string) > 0:
+
+                new_filename = self._script_to_filename(format_string, options)
+
+                if not options['move_files']:
+                    new_filename = os.path.basename(new_filename)
+
+                new_filename = utils.make_short_filename(new_dirname, new_filename)
+
+                # win32 compatibility fixes
+                if options['windows_compatible_filenames'] or sys.platform == 'win32':
+                    new_filename = new_filename.replace('./', '_/').replace('.\\', '_\\')
+
+                # replace . at the beginning of file and directory names
+                new_filename = new_filename.replace('/.', '/_').replace('\\.', '\\_')
+
+                if new_filename and new_filename[0] == '.':
+                    new_filename = '_' + new_filename[1:]
+
+                # Fix for precomposed characters on OSX
+                if sys.platform == "darwin":
+                    new_filename = unicodedata.normalize("NFD", unicode(new_filename))
+
+        return os.path.realpath(os.path.join(new_dirname, new_filename + ext.lower()))
+
+    def _rename(self, options):
+        self.filename, ext = os.path.splitext(self._make_filename(options))
+        if self.file.filename != self.filename + ext:
+            new_dirname = os.path.dirname(self.filename)
+            if not os.path.isdir(utils.encode_filename(new_dirname)):
+                os.makedirs(new_dirname)
+            tmp_filename = self.filename
+            i = 1
+            while (not utils.pathcmp(self.file.filename, self.filename + ext) and os.path.exists(utils.encode_filename(self.filename + ext))):
+                self.filename = "{} ({})".format(tmp_filename, i)
+                i += 1
+            self.filename = self.filename + ext
+            common = os.path.commonprefix(list((os.path.dirname(self.file.filename),os.path.dirname(self.filename))))
+            print utils.encode_filename(os.path.relpath(self.file.filename,common)) + "->" + utils.encode_filename(os.path.relpath(self.filename,common));
+            shutil.move(utils.encode_filename(self.file.filename), utils.encode_filename(self.filename))
+            return self.filename
+        else:
+            return self.file.filename
+
+    def _handle_filesystem_options(self, options):
+        """Save the metadata."""
+        self.filename = self.file.filename
+        # Rename files
+        if options["rename_files"] or options["move_files"]:
+            self.filename = self._rename(options)
+        # Delete empty directories
+        if options["delete_empty_dirs"]:
+            dirname = utils.encode_filename(os.path.dirname(self.file.filename))
+            try:
+                self._rmdir(dirname)
+                head, tail = os.path.split(dirname)
+                if not tail:
+                    head, tail = os.path.split(head)
+                while head and tail:
+                    try:
+                        self._rmdir(head)
+                    except:
+                        break
+                    head, tail = os.path.split(head)
+            except EnvironmentError:
+                pass
+        return self.filename
+
+    def _rmdir(self,dir_name):
+        junk_files = (".DS_Store", "desktop.ini", "Desktop.ini", "Thumbs.db")
+        if not set(os.listdir(dir_name)) - set(junk_files):
+            shutil.rmtree(dir_name, False)
+        else:
+            raise OSError
 
     def PostSave(self,options):
         return
@@ -231,9 +340,6 @@ class MP3Track(Track):
 
         tags = compatid3.CompatID3()
 
-        if options["clear-tags"]:
-            self.file.delete()
-
         for key,value in self.processed_data.items():
             if MP3Track.TranslationTable.has_key(key):
                 tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value[0]))
@@ -250,6 +356,9 @@ class MP3Track(Track):
             self.file.delall("APIC")
             tags.add(mutagen.id3.APIC(encoding=0, mime="image/jpeg", type=3, desc="", data=self.release.art[4]))
 
+        if options["clear-tags"]:
+            self.file.delete()
+
         self.file.update(tags)
 
         if options["id3version"] == "2.3":
@@ -261,7 +370,7 @@ class MP3Track(Track):
 
     def PostSave(self,options):
         if options["remove-ape"]:
-            mutagen.apev2.delete(self.file.filename)
+            mutagen.apev2.delete(self.filename)
 
 class FLACTrack(Track):
 
@@ -288,13 +397,13 @@ class FLACTrack(Track):
 
         tags = {}
 
-        if options["clear-tags"]:
-            self.file.delete()
-
         for key,value in self.processed_data.items():
             tags[key.upper().encode("utf-8")] = value
 
         cover_art = self.release.art
+
+        if options["clear-tags"]:
+            self.file.delete()
 
         if cover_art != None:
             self.file.clear_pictures();
@@ -335,13 +444,14 @@ class OggTrack(Track):
 
         tags = {}
 
-        if options["clear-tags"]:
-            self.file.delete()
-
         for key,value in self.processed_data.items():
             tags[key.upper().encode("utf-8")] = value
 
         cover_art = self.release.art
+        
+        if options["clear-tags"]:
+            self.file.delete()
+        
         if cover_art != None:
 
             if self.file.has_key(u"METADATA_BLOCK_PICTURE"):
@@ -357,139 +467,3 @@ class OggTrack(Track):
         self.file.update(tags)
 
         print "Updating \"" + unicode(self.file[u"title"][0]).encode("ascii","ignore") + "\" by " + unicode(self.file["artist"][0]).encode("ascii","ignore")
-
-class Release:
-    num_loaded = 0
-
-    MetadataTags = {
-        "artist-credit-phrase":"albumartist",
-        "asin":"asin",
-        "title":"album",
-        "barcode":"barcode",
-        "date":"date",
-        "country":"releasecountry",
-        "id":"musicbrainz_albumid"
-    }
-
-    def __init__(self,id_):
-        self.songs = list()
-        self.fetched = False
-        self.valid = True
-        self.art = None
-        self.data = None
-        self.processed_data = {}
-        Release.num_loaded += 1
-        try:
-            uuid.UUID(id_)
-        except ValueError:
-            print "Corrupt UUID given."
-            self.valid = False
-        else:
-            self.id = id_
-
-
-    def Fetch(self):
-        if not self.valid:
-            return
-
-        #Get the song metadata from MB Web Service - invalid release if this fails
-        try:
-            self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","isrcs","release-groups","media"])["release"]
-        except ws.musicbrainz.ResponseError:
-            print ("Connection Error!")
-            self.data = None
-            return
-        except ws.musicbrainz.NetworkError:
-            print ("Connection Error!")
-            self.data = None
-            return
-
-        self.__ProcessData()
-
-        #Get cover art for release - no CA if this fails
-        try:
-            cover = urllib2.urlopen("http://coverartarchive.org/release/"+self.id+"/front-500",None,10)
-        except urllib2.HTTPError:
-            print "No cover art exists for " + self.id
-            self.art = None
-        except urllib2.URLError:
-            print "Connection Error!"
-            self.art = None
-        else:
-            self.art = self.__PackageCoverArt(cover.read())
-
-        #Successfully retrieved data
-        self.fetched = True
-        return self.id
-
-    def __ProcessData(self):
-        for key,value in self.data.items():
-            if self.MetadataTags.has_key(key):
-                self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
-            elif key == "artist-credit":
-                i = 0
-                aartist_sort_name = ""
-                for c in value:
-                    if i == 0: #artist
-                        aartist_sort_name += c["artist"]["sort-name"]
-                        self.processed_data.setdefault("musicbrainz_albumartistid", []).append(c["artist"]["id"])
-                    else: #join phrase
-                        aartist_sort_name += c
-                    i ^= 1
-                self.processed_data.setdefault("albumartistsort", []).append(aartist_sort_name)
-            elif key == "status":
-                self.processed_data.setdefault("releasestatus", []).append(value.lower())
-            elif key == "release-group":
-                self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
-                self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
-            elif key == "label-info-list":
-                for label_info in value:
-                    if "label" in label_info:
-                        self.processed_data.setdefault("label", []).append(label_info["label"]["name"])
-                    if "catalog-number" in label_info:
-                        self.processed_data.setdefault("catalognumber", []).append(label_info["catalog-number"])
-            elif key == "text-representation":
-                if "language" in value:
-                    self.processed_data.setdefault("language", []).append(value["language"])
-                if "script" in value:
-                    self.processed_data.setdefault("script", []).append(value["script"])
-
-        self.processed_data.setdefault("totaldiscs", []).append(str(len(self.data["medium-list"])))
-
-    def __PackageCoverArt(self,image_content):
-        pos = image_content.find(chr(255) + chr(0xC0))
-
-        image_info = struct.unpack(">xxxxBHHB",image_content[pos:pos+10])
-
-        #print "Image Size: " + str(len(image_content)) + " bytes"
-        #print "Sample Precision: " + str(image_info[0])
-        #print "Image Height: " + str(image_info[1])
-        #print "Image Width: " + str(image_info[2])
-        #print "Number of components: " + str(image_info[3])
-        #print "Bits per Pixel: " + str(image_info[0]*image_info[3])
-        return image_info[0],image_info[1],image_info[2],image_info[3],image_content
-
-    def Sync(self,options):
-        if self.data is None:
-            return
-
-        for song in self.songs:
-            song.inc_count()
-            song.Sync(options)
-            song.Save(options)
-
-        return
-
-    def AddSong(self,audio_file):
-        if not self.valid:
-            return
-
-        self.songs.append(audio_file)
-
-    def Close(self):
-        if self.valid:
-            Track.num_loaded -= len(self.songs)
-            self.valid = False
-            self.data = None
-            self.art = None
-            del self.songs[:]
