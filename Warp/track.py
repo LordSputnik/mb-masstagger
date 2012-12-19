@@ -324,18 +324,7 @@ class MP3Track(Track):
         "TXXX:musicbrainz_trackid",
         "TXXX:MUSICBRAINZ_TRACKID",
         "TXXX:musicbrainz_albumartistid",
-        "TXXX:media",
-        "TXXX:script",
-        "TXXX:label",
-        "TXXX:artistsort"
-        "TXXX:releasestatus",
-        "TXXX:RELEASESTATUS",
-        "TXXX:albumartistsort",
-        "TXXX:releasetype",
-        "TXXX:language",
-        "TXXX:releasecountry",
-        "TXXX:date",
-        "TXXX:musicip_puid",
+        "TXXX:MUSICBRAINZ_ALBUMARTISTID",
         "TYER",
         "TDAT",
         "TIME"
@@ -386,12 +375,7 @@ class MP3Track(Track):
         else:
             for tag in MP3Track.TagsToRemove:
                 if tag in self.file:
-                    print "Removing tag: " + tag
                     del self.file[tag]
-                    if tag in self.file:
-                        print "Tag Remove failed!"
-                if tag in tags:
-                    print tag + " in metadata update!"
 
         self.file.update(tags)
 
