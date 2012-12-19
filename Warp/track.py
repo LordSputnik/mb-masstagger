@@ -28,7 +28,7 @@ class Track:
         "title":"title",
         "id":"musicbrainz_trackid"
     }
-    
+
     def __init__(self,audio_file,file_ext,options):
         self.file = audio_file
         self.filename = ""
@@ -296,10 +296,10 @@ class MP3Track(Track):
     TranslateTextField = {
         'acoustid_fingerprint': 'Acoustid Fingerprint',
         'acoustid_id': 'Acoustid Id',
-        'asin': 'asin',
-        'barcode': 'barcode',
-        'catalognumber': 'catalognumber',
-        'license': 'license',
+        'asin': 'ASIN',
+        'barcode': 'BARCODE',
+        'catalognumber': 'CATALOGNUMBER',
+        'license': 'LICENSE',
         'musicbrainz_albumartistid': 'MusicBrainz Album Artist Id',
         'musicbrainz_albumid': 'MusicBrainz Album Id',
         'musicbrainz_artistid': 'MusicBrainz Artist Id',
@@ -314,12 +314,31 @@ class MP3Track(Track):
         'releasetype': 'MusicBrainz Album Type',
         'script': 'SCRIPT'
     }
-    
+
+    #Tags which typically contain data stored in other tags.
     TagsToRemove = [
         "TXXX:musicbrainz_albumid",
+        "TXXX:MUSICBRAINZ_ALBUMID",
         "TXXX:musicbrainz_artistid",
+        "TXXX:MUSICBRAINZ_ARTISTID",
         "TXXX:musicbrainz_trackid",
-        "TXXX:musicbrainz_albumartistid"        
+        "TXXX:MUSICBRAINZ_TRACKID",
+        "TXXX:musicbrainz_albumartistid",
+        "TXXX:media",
+        "TXXX:script",
+        "TXXX:label",
+        "TXXX:artistsort"
+        "TXXX:releasestatus",
+        "TXXX:RELEASESTATUS",
+        "TXXX:albumartistsort",
+        "TXXX:releasetype",
+        "TXXX:language",
+        "TXXX:releasecountry",
+        "TXXX:date",
+        "TXXX:musicip_puid",
+        "TYER",
+        "TDAT",
+        "TIME"
     ]
 
     def inc_count(self):
@@ -367,9 +386,12 @@ class MP3Track(Track):
         else:
             for tag in MP3Track.TagsToRemove:
                 if tag in self.file:
+                    print "Removing tag: " + tag
                     del self.file[tag]
-                if tag.upper() in self.file:
-                    del self.file[tag.upper()]
+                    if tag in self.file:
+                        print "Tag Remove failed!"
+                if tag in tags:
+                    print tag + " in metadata update!"
 
         self.file.update(tags)
 
