@@ -213,6 +213,8 @@ while num_completed_releases != last_num_completed_releases:
                         release_id = str(audio["TXXX:MusicBrainz Album Id"])
                     elif "TXXX:musicbrainz_albumid" in audio:
                         release_id = str(audio["TXXX:musicbrainz_albumid"])
+                    elif "TXXX:MUSICBRAINZ_ALBUMID" in audio:
+                        release_id = str(audio["TXXX:MUSICBRAINZ_ALBUMID"])
                     else:
                         print "Song: " + audio.filename + " doesn't have tag:"
                         for key,value in audio.items():

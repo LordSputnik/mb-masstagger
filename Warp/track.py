@@ -28,7 +28,7 @@ class Track:
         "title":"title",
         "id":"musicbrainz_trackid"
     }
-
+    
     def __init__(self,audio_file,file_ext,options):
         self.file = audio_file
         self.filename = ""
@@ -314,6 +314,13 @@ class MP3Track(Track):
         'releasetype': 'MusicBrainz Album Type',
         'script': 'SCRIPT'
     }
+    
+    TagsToRemove = [
+        "TXXX:musicbrainz_albumid",
+        "TXXX:musicbrainz_artistid",
+        "TXXX:musicbrainz_trackid",
+        "TXXX:musicbrainz_albumartistid"        
+    ]
 
     def inc_count(self):
         MP3Track.count += 1
@@ -357,6 +364,12 @@ class MP3Track(Track):
 
         if options["clear-tags"]:
             self.file.delete()
+        else:
+            for tag in MP3Track.TagsToRemove:
+                if tag in self.file:
+                    del self.file[tag]
+                if tag.upper() in self.file:
+                    del self.file[tag.upper()]
 
         self.file.update(tags)
 
