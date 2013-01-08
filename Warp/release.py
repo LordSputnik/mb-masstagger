@@ -144,6 +144,7 @@ class Release:
 
     def Close(self):
         if self.valid:
+            Release.num_loaded -= 1
             track.Track.num_loaded -= len(self.songs)
             self.valid = False
             self.data = None

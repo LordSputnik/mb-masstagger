@@ -1,14 +1,13 @@
 
-max_fetch_attemps="1"
+max_fetch_attemps="3"
 
 -----------
 
 rename_files=yes
-rename_format="%album_artist%/%release%/%track%. %track_title%"
-multi-disc_rename_format="%album_artist%/%release%/%disc%/%track%. %track_title%"
+rename_format="$if2(%albumartist%,%artist%)/%album%/$if($gt(%totaldiscs%,1),%discnumber%-,)$num(%tracknumber%,2).$if(%compilation%, %artist% -,) %title%"
 
 move_files=yes
-library_folder="/home/ben/workspace/MusicBrainz Warp/test/MP3"
+library_folder=""
 
 ascii_filenames=no
 windows_compatible_filenames=yes
@@ -19,8 +18,3 @@ delete_empty_dirs=yes
 clear-tags=no
 remove-ape=yes
 id3version="2.3"
-
------------
-And yes, you can actually type strings in here! Here's Nikki's pedantic zero filling options...
-min-track-zero-pad="0"
-min-disc-zero-pad="0"

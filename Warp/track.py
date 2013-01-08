@@ -11,13 +11,7 @@ import mutagen.apev2
 
 import utils
 import compatid3
-
-scripting_variables = {
-    u"%track_title%":"title",
-    u"%artist%":"artist",
-    u"%album_artist%":"albumartist",
-    u"%release%":"album"
-}
+import script
 
 class Track:
     num_loaded = 0
@@ -64,28 +58,12 @@ class Track:
 
         self.PostSave(options)
 
-    def _parse_filename_script(self, format_string, options):
-        result = unicode(copy.copy(format_string))
-
-        disc_field_width = min(max(len(self.processed_data["totaldiscs"][0]), int(options["min-disc-zero-pad"])), 10)
-        track_field_width = min(max(len(self.processed_data["totaltracks"][0]), int(options["min-track-zero-pad"])), 10)
-        disc_string = unicode("{"+":0>{}".format(disc_field_width) + "}")
-        track_string = unicode("{"+":0>{}".format(track_field_width) + "}")
-
-
-
-        for key,value in scripting_variables.items():
-            result = result.replace(unicode(key),utils.sanitize_filename(unicode(self.processed_data[value][0])))
-
-        result = result.replace(u"%disc%",disc_string.format(self.processed_data["discnumber"][0]))
-        result = result.replace(u"%track%",track_string.format(self.processed_data["tracknumber"][0]))
-
-        return result
-
-
     def _script_to_filename(self, format_string, options):
         #Do format script replacing here.
-        filename = self._parse_filename_script(format_string, options)
+        metadata = copy.copy(self.processed_data)
+        filename = script.ScriptParser().eval(format_string, metadata, self)
+
+        #filename = self._parse_filename_script(format_string, options)
 
         filename = filename.replace("\x00", "").replace("\t", "").replace("\n", "")
 
@@ -113,11 +91,7 @@ class Track:
 
         if options["rename_files"]:
 
-            # expand the naming format
-            if int(self.processed_data["totaldiscs"][0]) > 1:
-                format_string = options['multi-disc_rename_format']
-            else:
-                format_string = options['rename_format']
+            format_string = options['rename_format']
             if len(format_string) > 0:
 
                 new_filename = self._script_to_filename(format_string, options)

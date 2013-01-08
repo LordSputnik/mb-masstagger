@@ -189,11 +189,11 @@ while num_completed_releases != last_num_completed_releases:
             del dirnames[:]
         for filename in filenames:
 
-            if (Warp.track.Track.num_loaded > 1000) or (len(albums) > 100):
+            if (Warp.track.Track.num_loaded > 1000) or (Warp.release.Release.num_loaded > 100):
                 print "No New Albums Set!"
                 no_new_albums = True
             else:
-                print "Songs: {} Albums: {}".format(Warp.track.Track.num_loaded,len(albums)) 
+                print "Songs: {} Albums: {}".format(Warp.track.Track.num_loaded,Warp.release.Release.num_loaded) 
 
             release_id = None
             audio = None
