@@ -114,7 +114,7 @@ def InterpretOptionValue(value):
         return False
 
     else:
-        return value.replace("\"","").replace("\n","")
+        return unicode(value.replace("\"","").replace("\n",""))
 
 def ReadOptions(file_name):
     f = open(file_name,"r")
@@ -125,7 +125,7 @@ def ReadOptions(file_name):
 
         if len(words) > 1:
             options[words[0]] = InterpretOptionValue(words[1])
-            print "{} = {}".format(words[0], options[words[0]])
+            print "{} = {}".format(words[0], repr(options[words[0]]))
 
     print "\n"
 
@@ -201,7 +201,7 @@ while num_completed_releases != last_num_completed_releases:
             file_ext = os.path.splitext(filename)[1][1:]
             is_audio_file = False
 
-            abs_file_path = unicode(os.path.realpath(os.path.join(dirname,filename)),encoding="utf-8")
+            abs_file_path = os.path.realpath(os.path.join(dirname,filename))
             if file_ext == "mp3":
                 is_audio_file = True
                 try:

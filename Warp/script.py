@@ -21,7 +21,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import re
+import utils
 from inspect import getargspec
+
+MULTI_VALUED_JOINER = '; '
 
 class ScriptError(Exception): pass
 class ParseError(ScriptError): pass
@@ -47,7 +50,13 @@ class ScriptVariable(object):
         name = self.name
         if name.startswith(u"_"):
             name = u"~" + name[1:]
-        return state.context.get(name, [u""])[0]
+        
+        values = state.context.get(name, None)
+        
+        if values is not None:
+            return utils.sanitize_filename(MULTI_VALUED_JOINER.join(values))
+        else:
+            return u""
 
 
 class ScriptFunction(object):

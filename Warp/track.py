@@ -61,10 +61,9 @@ class Track:
     def _script_to_filename(self, format_string, options):
         #Do format script replacing here.
         metadata = copy.copy(self.processed_data)
+        
         filename = script.ScriptParser().eval(format_string, metadata, self)
-
-        #filename = self._parse_filename_script(format_string, options)
-
+        
         filename = filename.replace("\x00", "").replace("\t", "").replace("\n", "")
 
         # replace incompatible characters
