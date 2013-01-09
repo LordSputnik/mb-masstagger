@@ -15,7 +15,6 @@ class Release:
         "artist-credit-phrase":"albumartist",
         "asin":"asin",
         "title":"album",
-        "barcode":"barcode",
         "date":"date",
         "country":"releasecountry",
         "id":"musicbrainz_albumid"
@@ -93,7 +92,7 @@ class Release:
             elif key == "status":
                 self.processed_data.setdefault("releasestatus", []).append(value.lower())
             elif key == "release-group":
-                if "first-release-data" in value:
+                if "first-release-date" in value:
                     self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
                 if "type" in value:
                     self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
@@ -103,6 +102,9 @@ class Release:
                         self.processed_data.setdefault("label", []).append(label_info["label"]["name"])
                     if "catalog-number" in label_info:
                         self.processed_data.setdefault("catalognumber", []).append(label_info["catalog-number"])
+            elif key == "barcode":
+                if value is not None:
+                    self.processed_data.setdefault("barcode", []).append(value)
             elif key == "text-representation":
                 if "language" in value:
                     self.processed_data.setdefault("language", []).append(value["language"])
@@ -110,6 +112,8 @@ class Release:
                     self.processed_data.setdefault("script", []).append(value["script"])
 
         self.processed_data.setdefault("totaldiscs", []).append(str(len(self.data["medium-list"])))
+        
+        run_album_metadata_processors(None, self.processed_data, self.data)
 
     def __PackageCoverArt(self,image_content):
         pos = image_content.find(chr(255) + chr(0xC0))
@@ -150,3 +154,13 @@ class Release:
             self.data = None
             self.art = None
             del self.songs[:]
+            
+_album_metadata_processors = []
+
+def register_album_metadata_processor(function):
+    """Registers new album-level metadata processor."""
+    _album_metadata_processors.append(function)
+
+def run_album_metadata_processors(tagger, metadata, release):
+    for processor in _album_metadata_processors:
+        processor(tagger, metadata, release)

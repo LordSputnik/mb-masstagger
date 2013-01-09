@@ -29,6 +29,7 @@ import musicbrainzngs as ws
 import Warp.compatid3
 import Warp.track
 import Warp.release
+import Warp.plugin
 
 
 from Warp.utils import *
@@ -148,6 +149,7 @@ def SyncMetadata(release):
 ###############################################
 
 PrintHeader()
+Warp.plugin.LoadPlugins()
 
 ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
 ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")

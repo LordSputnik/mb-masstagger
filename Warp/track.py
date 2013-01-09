@@ -51,8 +51,12 @@ class Track:
             return
 
         Track.num_processed += 1
-
-        self.SaveFunc(options)
+        try:
+            self.SaveFunc(options)
+        except ValueError:
+            for key,value in self.processed_data.items():
+                if value[0] is None:
+                    print "{}: {}".format(key,value)
 
         self._handle_filesystem_options(options)
 
@@ -225,6 +229,8 @@ class Track:
                         artist_sort_name += c
                     i ^= 1
                 self.processed_data.setdefault("artistsort", []).append(artist_sort_name)
+        
+        run_track_metadata_processors(None,self.processed_data,None,recording)
         return
 
 class MP3Track(Track):
@@ -458,3 +464,14 @@ class OggTrack(Track):
         self.file.update(tags)
 
         print "Updating \"" + unicode(self.file[u"title"][0]).encode("ascii","ignore") + "\" by " + unicode(self.file["artist"][0]).encode("ascii","ignore")
+
+_track_metadata_processors = []
+
+def register_track_metadata_processor(function):
+    """Registers new track-level metadata processor."""
+    _track_metadata_processors.append(function)
+
+
+def run_track_metadata_processors(tagger, metadata, release, track):
+    for processor in _track_metadata_processors:
+        processor(tagger, metadata, track, release)
