@@ -6,7 +6,7 @@ Warp is an automatic audio file metadata tagger which uses the MusicBrainz Pytho
 Key Features
 ------------
 
-* Able to automatically tag any MP3, Ogg Vorbis or FLAC file, that as already been tagged in Picard.
+* Able to automatically tag any MP3, Ogg Vorbis or FLAC file, that has already been tagged in Picard.
 * Able to run recursively on a set of directories - update your whole music library in one command!
 * Configurable options file to allow for customization of the tagging process.
 * Can save either ID3v2.3 or v2.4 tags, and can remove APEv2 tags from MP3 files.
@@ -49,7 +49,7 @@ Hopefully in the future, Warp will have a nice installer that'll do all of this 
 * First of all, visit https://github.com/LordSputnik/mb-masstagger and download the entire repository as a zip file.
 * Extract the zip file to your preferred location.
 * In the new folder, copy "options.default" and rename it to "options", with no extension.
-* Edit the file in Notepad or an equivalent text editor (see [[User:LordSputnik/Warp#Editing_the_Options_file|Editing the Options file]]).
+* Edit the file in Notepad or an equivalent text editor (see Editing the Options file).
 * Open the command prompt or terminal in the directory you extracted the files to and type "python warp.py".
 
 **Editing the Options file**
