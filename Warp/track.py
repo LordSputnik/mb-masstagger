@@ -56,7 +56,7 @@ class Track:
         except ValueError:
             for key,value in self.processed_data.items():
                 if value[0] is None:
-                    print "{}: {}".format(key,value)
+                    utils.safeprint( u"{} : {}".format(key,value) )
 
         self._handle_filesystem_options(options)
 
@@ -133,7 +133,7 @@ class Track:
                 i += 1
             self.filename = self.filename + ext
             common = os.path.commonprefix(list((os.path.dirname(self.file.filename),os.path.dirname(self.filename))))
-            print utils.encode_filename(os.path.relpath(self.file.filename,common)) + "->" + utils.encode_filename(os.path.relpath(self.filename,common));
+            utils.safeprint(u"{} -> {}".format(os.path.relpath(self.file.filename,common),os.path.relpath(self.filename,common)))
             shutil.move(utils.encode_filename(self.file.filename), utils.encode_filename(self.filename))
             return self.filename
         else:
@@ -175,7 +175,7 @@ class Track:
 
     def _ProcessData(self):
         if self.release is None:
-            print "ERROR: Release is not set!"
+            utils.safeprint( "ERROR: Release is not set!" )
             self.processed_data = None
             return
 
@@ -191,7 +191,7 @@ class Track:
             if total_discs == 1:
                 self.discnumber = "1"
             else:
-                print "ERROR: Couldn't identify medium number!"
+                utils.safeprint( "ERROR: Couldn't identify medium number!" )
                 self.processed_data = None
                 return
 
@@ -209,7 +209,7 @@ class Track:
                         recording = t["recording"]
 
         if recording is None: #Couldn't find the recording - we can't do anything (except maybe look for recording id).
-            print "ERROR: Couldn't identify recording in medium!"
+            utils.safeprint( "ERROR: Couldn't identify recording in medium!" )
             self.processed_data = None
             return
 
@@ -363,7 +363,7 @@ class MP3Track(Track):
         elif options["id3version"] == "2.4":
             self.file.update_to_v24()
 
-        print "Updating \"" + unicode(self.file[MP3Track.TranslationTable["title"]].text[0]).encode("ascii","ignore") + "\" by " + unicode(self.file[MP3Track.TranslationTable["artist"]].text[0]).encode("ascii","ignore")
+        utils.safeprint(u"Updating \"{}\" by {}".format(self.file[MP3Track.TranslationTable["title"]].text[0],self.file[MP3Track.TranslationTable["artist"]].text[0]))
 
     def PostSave(self,options):
         if options["remove-ape"]:
@@ -413,8 +413,7 @@ class FLACTrack(Track):
 
         self.file.update(tags)
 
-        print "Updating \"" + unicode(self.file[u"title"][0]).encode("ascii","ignore") + "\" by " + unicode(self.file["artist"][0]).encode("ascii","ignore")
-
+        utils.safeprint(u"Updating \"{}\" by {}".format(self.file[u"title"][0],self.file["artist"][0]))
 
 class OggTrack(Track):
 
@@ -463,7 +462,7 @@ class OggTrack(Track):
 
         self.file.update(tags)
 
-        print "Updating \"" + unicode(self.file[u"title"][0]).encode("ascii","ignore") + "\" by " + unicode(self.file["artist"][0]).encode("ascii","ignore")
+        utils.safeprint(u"Updating \"{}\" by {}".format(self.file[u"title"][0],self.file["artist"][0]))
 
 _track_metadata_processors = []
 

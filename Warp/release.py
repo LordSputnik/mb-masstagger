@@ -5,6 +5,7 @@ import struct
 import musicbrainzngs as ws
 
 import track
+import utils
 
 num_releases = 0
 
@@ -32,7 +33,7 @@ class Release:
         try:
             uuid.UUID(id_)
         except ValueError:
-            print "Corrupt UUID given."
+            utils.safeprint( u"Corrupt UUID in file." )
             self.valid = False
         else:
             self.id = id_
@@ -48,11 +49,11 @@ class Release:
         try:
             self.data = ws.get_release_by_id(self.id,["artist-credits","recordings","labels","release-groups","media"])["release"]
         except ws.musicbrainz.ResponseError:
-            print ("Connection Error!")
+            utils.safeprint ( u"Connection Error!" )
             self.data = None
             return
         except ws.musicbrainz.NetworkError:
-            print ("Connection Error!")
+            utils.safeprint ( u"Connection Error!" )
             self.data = None
             return
 
@@ -62,10 +63,10 @@ class Release:
         try:
             cover = urllib2.urlopen("http://coverartarchive.org/release/"+self.id+"/front-500",None,10)
         except urllib2.HTTPError:
-            print "No cover art exists for " + self.id
+            utils.safeprint( u"No cover art in CAA for \"{}\".".format(self.processed_data["album"][0]) )
             self.art = None
         except urllib2.URLError:
-            print "Connection Error!"
+            utils.safeprint( u"Connection Error!" )
             self.art = None
         else:
             self.art = self.__PackageCoverArt(cover.read())

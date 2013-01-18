@@ -23,13 +23,14 @@
 import re
 import utils
 from inspect import getargspec
+import unicodedata
 
 MULTI_VALUED_JOINER = '; '
 
 class ScriptError(Exception): pass
 class ParseError(ScriptError): pass
 class EndOfFile(ParseError): pass
-class SyntaxError(ParseError): pass
+class ScriptSyntaxError(ParseError): pass
 class UnknownFunction(ScriptError): pass
 
 class ScriptText(unicode):
@@ -50,9 +51,9 @@ class ScriptVariable(object):
         name = self.name
         if name.startswith(u"_"):
             name = u"~" + name[1:]
-        
+
         values = state.context.get(name, None)
-        
+
         if values is not None:
             return utils.sanitize_filename(MULTI_VALUED_JOINER.join(values))
         else:
@@ -118,7 +119,7 @@ Grammar:
   expression ::= (variable | function | text)*
   argument   ::= (variable | function | argtext)*
 """
-    
+
     _function_registry = []
     _cache = {}
 
@@ -128,8 +129,8 @@ Grammar:
     def __raise_char(self, ch):
         #line = self._text[self._line:].split("\n", 1)[0]
         #cursor = " " * (self._pos - self._line - 1) + "^"
-        #raise SyntaxError("Unexpected character '%s' at position %d, line %d\n%s\n%s" % (ch, self._x, self._y, line, cursor))
-        raise SyntaxError("Unexpected character '%s' at position %d, line %d" % (ch, self._x, self._y))
+        #raise ScriptSyntaxError("Unexpected character '%s' at position %d, line %d\n%s\n%s" % (ch, self._x, self._y, line, cursor))
+        raise ScriptSyntaxError("Unexpected character '%s' at position %d, line %d" % (ch, self._x, self._y))
 
     def read(self):
         try:
@@ -177,7 +178,7 @@ Grammar:
 
     def parse_variable(self):
         begin = self._pos
-        
+
         while True:
             ch = self.read()
             if ch == '%':
@@ -276,7 +277,7 @@ def register_script_function(function, name=None, eval_args=True,
 
     if name is None:
         name = function.__name__
-        
+
     ScriptParser._function_registry.append((name,function,eval_args,argcount if argcount and check_argcount else False))
 
 def func_if(parser, _if, _then, _else=None):
@@ -347,12 +348,12 @@ def func_rsearch(parser, text, pattern):
     return u""
 
 def func_num(parser, text, length):
-    format = "%%0%dd" % int(length)
+    str_format = "%%0%dd" % int(length)
     try:
         value = int(text)
     except ValueError:
         value = 0
-    return format % value
+    return str_format % value
 
 def func_unset(parser, name):
     """Unsets the variable ``name``."""

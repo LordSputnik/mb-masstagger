@@ -15,9 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with MusicBrainz MassTagger. If not, see <http://www.gnu.org/licenses/>.
 
-import json
-import time
 import os
+import time
 
 from collections import deque
 
@@ -30,9 +29,7 @@ import Warp.compatid3
 import Warp.track
 import Warp.release
 import Warp.plugin
-
-
-from Warp.utils import *
+import Warp.utils
 
 num_total_songs = 0
 
@@ -53,14 +50,14 @@ ValidFileTypes = [
 ]
 
 def PrintHeader():
-    print (
-"\
-----------------------------------------------------\n\
-| MusicBrainz Warp - 0.1                           |\n\
-| Created by Ben Ockmore AKA LordSputnik, (C) 2012 |\n\
-----------------------------------------------------\n\n\
-Starting..."
-)
+    Warp.utils.safeprint( u"""
+----------------------------------------------------
+| MusicBrainz Warp - 0.1                           |
+| Created by Ben Ockmore AKA LordSputnik, (C) 2012 |
+----------------------------------------------------
+
+Starting...
+""")
     return
 
 def FetchNextRelease():
@@ -120,15 +117,15 @@ def InterpretOptionValue(value):
 def ReadOptions(file_name):
     f = open(file_name,"r")
 
-    print "\nReading Options..."
+    Warp.utils.safeprint( u"\nReading Options..." )
     for line in f:
         words = line.split("=")
 
         if len(words) > 1:
             options[words[0]] = InterpretOptionValue(words[1])
-            print "{} = {}".format(words[0], repr(options[words[0]]))
+            Warp.utils.safeprint(u"{} = {}".format(words[0], repr(options[words[0]])))
 
-    print "\n"
+    Warp.utils.safeprint( u"\n" )
 
 ###############################################
 ### Metadata Syncing Functions ################
@@ -177,8 +174,8 @@ for dirname, dirnames, filenames in os.walk(options["library_folder"]):
         if os.path.splitext(filename)[1][1:] in ValidFileTypes: # Compares extension to valid extensions.
             num_total_songs += 1
 
-print ("Found {} songs to update.".format(num_total_songs))
-print ("Updating...\n")
+Warp.utils.safeprint(u"Found {} songs to update.".format(num_total_songs))
+Warp.utils.safeprint(u"Updating...\n")
 
 while num_completed_releases != last_num_completed_releases:
 
@@ -192,10 +189,7 @@ while num_completed_releases != last_num_completed_releases:
         for filename in filenames:
 
             if (Warp.track.Track.num_loaded > 1000) or (Warp.release.Release.num_loaded > 100):
-                print "No New Albums Set!"
                 no_new_albums = True
-            else:
-                print "Songs: {} Albums: {}".format(Warp.track.Track.num_loaded,Warp.release.Release.num_loaded) 
 
             release_id = None
             audio = None
@@ -209,7 +203,7 @@ while num_completed_releases != last_num_completed_releases:
                 try:
                     audio = Warp.compatid3.CompatID3(abs_file_path)
                 except mutagen.id3.ID3NoHeaderError:
-                    print ("Invalid MP3 File: " + abs_file_path)
+                    pass
                 else:
                     if "TXXX:MusicBrainz Album Id" in audio:
                         release_id = str(audio["TXXX:MusicBrainz Album Id"])
@@ -218,10 +212,10 @@ while num_completed_releases != last_num_completed_releases:
                     elif "TXXX:MUSICBRAINZ_ALBUMID" in audio:
                         release_id = str(audio["TXXX:MUSICBRAINZ_ALBUMID"])
                     else:
-                        print "Song: " + audio.filename + " doesn't have tag:"
+                        Warp.utils.safeprint( u"Song: {} doesn't have tag:".format(audio.filename) )
                         for key,value in audio.items():
                             if str(key)[0:4] != "APIC":
-                                print "K: " + str(key) + " V: " + str(value)
+                                Warp.utils.safeprint( u"{} : {}".format(key,value) )
                     if release_id is not None:
                         track = Warp.track.MP3Track(audio,file_ext,options)
 
@@ -230,7 +224,7 @@ while num_completed_releases != last_num_completed_releases:
                 try:
                     audio = mutagen.flac.FLAC(abs_file_path)
                 except mutagen.flac.FLACNoHeaderError:
-                    print ("Invalid FLAC File: " + abs_file_path)
+                    pass
                 else:
                     if "musicbrainz_albumid" in audio:
                         release_id = str(audio["musicbrainz_albumid"][0])
@@ -241,7 +235,7 @@ while num_completed_releases != last_num_completed_releases:
                 try:
                     audio = mutagen.oggvorbis.OggVorbis(abs_file_path)
                 except mutagen.oggvorbis.OggVorbisHeaderError:
-                    print ("Invalid Ogg File: " + abs_file_path)
+                    pass
                 else:
                     is_audio_file = True
                     if "musicbrainz_albumid" in audio:
@@ -261,24 +255,23 @@ while num_completed_releases != last_num_completed_releases:
             elif is_audio_file:
                 if abs_file_path not in skipped_files:
                     skipped_files.append(abs_file_path)
+                    Warp.track.Track.num_processed += 1
 
 
     while len(albums_fetch_queue) > 0:
         fetched_release = FetchNextRelease()
         if fetched_release != None:
-            print "\nID: " + fetched_release.id + " with " + str(len(fetched_release.songs)) + " songs."
             SyncMetadata(fetched_release)
             fetched_release.Close()
-            print ("Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, Warp.track.Track.num_loaded, Warp.track.Track.num_processed, num_total_songs))
+            Warp.utils.safeprint( u"Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, Warp.track.Track.num_loaded, Warp.track.Track.num_processed, num_total_songs) )
 
 
     num_completed_releases = len(albums)
     no_new_albums = False
-    #print ("Albums processed: " + str(num_completed_releases) + " Last Album Total: " + str(last_num_completed_releases))
 
-print ("\n-------------------------------------------------")
-print ("Checked {} MP3s, {} OGGs and {} FLACs.".format(Warp.track.MP3Track.count, Warp.track.OggTrack.count, Warp.track.FLACTrack.count))
+Warp.utils.safeprint( u"\n-------------------------------------------------" )
+Warp.utils.safeprint( u"Checked {} MP3s, {} OGGs and {} FLACs.".format(Warp.track.MP3Track.count, Warp.track.OggTrack.count, Warp.track.FLACTrack.count) )
 if len(skipped_files) > 0:
-    print ("Skipped {} files with no MB Release ID:".format(len(skipped_files)))
+    Warp.utils.safeprint( u"Skipped {} files with no MB Release ID:".format(len(skipped_files)) )
     for s in skipped_files:
-        print " " + s
+        Warp.utils.safeprint( u" - {}".format(s) )

@@ -133,6 +133,15 @@ def decode_filename(filename):
     else:
         return filename.decode(_io_encoding)
 
+
+_console_encoding = sys.stdout.encoding
+def safeprint(str_to_print):
+    """Encode unicode strings to filesystem encoding."""
+    if isinstance(str_to_print, unicode):
+        print str_to_print.encode(_console_encoding, 'replace')
+    else:
+        print str_to_print.decode("ascii","replace").encode(_console_encoding, "replace") #Assume string is ascii.
+    
 _re_win32_incompat = re.compile(r'["*:<>?|]', re.UNICODE)
 def replace_win32_incompat(string, repl=u"_"):
     """Replace win32 filename incompatible characters from ``string`` by
