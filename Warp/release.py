@@ -134,7 +134,7 @@ class Release:
         if self.data is None:
             return
         
-        utils.safeprint( u"Updating {}...".format(self.processed_data["album"]))
+        utils.safeprint( u"Updating {} by {}...".format(self.processed_data["album"],self.processed_data["albumartist"]))
         
         for song in self.songs:
             song.inc_count()
