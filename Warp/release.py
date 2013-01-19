@@ -6,6 +6,7 @@ import musicbrainzngs as ws
 
 import track
 import utils
+import metadata
 
 num_releases = 0
 
@@ -27,7 +28,7 @@ class Release:
         self.valid = True
         self.art = None
         self.data = None
-        self.processed_data = {}
+        self.processed_data = metadata.Metadata()
         self.fetch_attempts = 0
         Release.num_loaded += 1
         try:
@@ -63,7 +64,7 @@ class Release:
         try:
             cover = urllib2.urlopen("http://coverartarchive.org/release/"+self.id+"/front-500",None,10)
         except urllib2.HTTPError:
-            utils.safeprint( u"No cover art in CAA for \"{}\".".format(self.processed_data["album"][0]) )
+            utils.safeprint( u"No cover art in CAA for \"{}\".".format(self.processed_data["album"]) )
             self.art = None
         except urllib2.URLError:
             utils.safeprint( u"Connection Error!" )
@@ -78,41 +79,41 @@ class Release:
     def __ProcessData(self):
         for key,value in self.data.items():
             if key in self.MetadataTags:
-                self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
+                self.processed_data.add(self.MetadataTags[key],value)
             elif key == "artist-credit":
                 i = 0
                 aartist_sort_name = ""
                 for c in value:
                     if i == 0: #artist
                         aartist_sort_name += c["artist"]["sort-name"]
-                        self.processed_data.setdefault("musicbrainz_albumartistid", []).append(c["artist"]["id"])
+                        self.processed_data.add("musicbrainz_albumartistid",c["artist"]["id"])
                     else: #join phrase
                         aartist_sort_name += c
                     i ^= 1
-                self.processed_data.setdefault("albumartistsort", []).append(aartist_sort_name)
+                self.processed_data.add("albumartistsort",aartist_sort_name)
             elif key == "status":
-                self.processed_data.setdefault("releasestatus", []).append(value.lower())
+                self.processed_data.add("releasestatus",value.lower())
             elif key == "release-group":
                 if "first-release-date" in value:
-                    self.processed_data.setdefault("originaldate", []).append(value["first-release-date"])
+                    self.processed_data.add("originaldate",value["first-release-date"])
                 if "type" in value:
-                    self.processed_data.setdefault("releasetype", []).append(value["type"].lower())
+                    self.processed_data.add("releasetype",value["type"].lower())
             elif key == "label-info-list":
                 for label_info in value:
                     if "label" in label_info:
-                        self.processed_data.setdefault("label", []).append(label_info["label"]["name"])
+                        self.processed_data.add("label",label_info["label"]["name"])
                     if "catalog-number" in label_info:
-                        self.processed_data.setdefault("catalognumber", []).append(label_info["catalog-number"])
+                        self.processed_data.add("catalognumber",label_info["catalog-number"])
             elif key == "barcode":
                 if value is not None:
-                    self.processed_data.setdefault("barcode", []).append(value)
+                    self.processed_data.add("barcode",value)
             elif key == "text-representation":
                 if "language" in value:
-                    self.processed_data.setdefault("language", []).append(value["language"])
+                    self.processed_data.add("language",value["language"])
                 if "script" in value:
-                    self.processed_data.setdefault("script", []).append(value["script"])
+                    self.processed_data.add("script",value["script"])
 
-        self.processed_data.setdefault("totaldiscs", []).append(str(len(self.data["medium-list"])))
+        self.processed_data.add("totaldiscs",str(len(self.data["medium-list"])))
         
         run_album_metadata_processors(None, self.processed_data, self.data)
 
@@ -132,7 +133,9 @@ class Release:
     def Sync(self,options):
         if self.data is None:
             return
-
+        
+        utils.safeprint( u"Updating {}...".format(self.processed_data["album"]))
+        
         for song in self.songs:
             song.inc_count()
             song.Sync(options)

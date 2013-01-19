@@ -263,7 +263,7 @@ while num_completed_releases != last_num_completed_releases:
         if fetched_release != None:
             SyncMetadata(fetched_release)
             fetched_release.Close()
-            Warp.utils.safeprint( u"Pass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, Warp.track.Track.num_loaded, Warp.track.Track.num_processed, num_total_songs) )
+            Warp.utils.safeprint( u"\nPass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, Warp.track.Track.num_loaded, Warp.track.Track.num_processed, num_total_songs) )
 
 
     num_completed_releases = len(albums)

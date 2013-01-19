@@ -1,6 +1,5 @@
 import base64
 import os
-import copy
 import sys
 import unicodedata
 import shutil
@@ -12,6 +11,7 @@ import mutagen.apev2
 import utils
 import compatid3
 import script
+import metadata
 
 class Track:
     num_loaded = 0
@@ -31,7 +31,7 @@ class Track:
 
 
         self.ext = file_ext
-        self.processed_data = {}
+        self.processed_data = metadata.Metadata()
         self.discnumber = "0"
         self.tracknumber = "0"
         self.release = None
@@ -64,9 +64,10 @@ class Track:
 
     def _script_to_filename(self, format_string, options):
         #Do format script replacing here.
-        metadata = copy.copy(self.processed_data)
+        script_data = metadata.Metadata()
+        script_data.copy(self.processed_data)
         
-        filename = script.ScriptParser().eval(format_string, metadata, self)
+        filename = script.ScriptParser().eval(format_string, script_data, self)
         
         filename = filename.replace("\x00", "").replace("\t", "").replace("\n", "")
 
@@ -181,7 +182,7 @@ class Track:
 
         release_data = self.release.data
         recording = None
-        self.processed_data = copy.copy(self.release.processed_data)
+        self.processed_data.copy(self.release.processed_data)
 
         #Get the recording info for the song.
         total_discs = len(release_data["medium-list"])
@@ -197,15 +198,15 @@ class Track:
 
         for medium in release_data["medium-list"]:
             if medium["position"] == self.discnumber:
-                self.processed_data.setdefault("discnumber", []).append(self.discnumber)
-                self.processed_data.setdefault("totaltracks", []).append(str(len(medium["track-list"])))
+                self.processed_data.add("discnumber",self.discnumber)
+                self.processed_data.add("totaltracks",str(len(medium["track-list"])))
 
                 if "format" in medium:
-                    self.processed_data.setdefault("media", []).append(medium["format"])
+                    self.processed_data.add("media",medium["format"])
 
                 for t in medium["track-list"]:
                     if t["position"] == self.tracknumber:
-                        self.processed_data.setdefault("tracknumber", []).append(self.tracknumber)
+                        self.processed_data.add("tracknumber",self.tracknumber)
                         recording = t["recording"]
 
         if recording is None: #Couldn't find the recording - we can't do anything (except maybe look for recording id).
@@ -216,7 +217,7 @@ class Track:
         for key,value in recording.items():
 
             if key in self.MetadataTags:
-                self.processed_data.setdefault(self.MetadataTags[key], []).append(value)
+                self.processed_data.add(self.MetadataTags[key],value)
 
             elif key == "artist-credit":
                 i = 0
@@ -224,11 +225,11 @@ class Track:
                 for c in value:
                     if i == 0: #artist
                         artist_sort_name += c["artist"]["sort-name"]
-                        self.processed_data.setdefault("musicbrainz_artistid", []).append(c["artist"]["id"])
+                        self.processed_data.add("musicbrainz_artistid",c["artist"]["id"])
                     else: #join phrase
                         artist_sort_name += c
                     i ^= 1
-                self.processed_data.setdefault("artistsort", []).append(artist_sort_name)
+                self.processed_data.add("artistsort",artist_sort_name)
         
         run_track_metadata_processors(None,self.processed_data,None,recording)
         return
@@ -333,17 +334,18 @@ class MP3Track(Track):
 
         tags = compatid3.CompatID3()
 
-        for key,value in self.processed_data.items():
+        for key in self.processed_data.keys():
+            value = self.processed_data.get(key)
             if key in MP3Track.TranslationTable:
-                tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value[0]))
+                tags.add(getattr(mutagen.id3,MP3Track.TranslationTable[key])(encoding=MP3Track.id3encoding, text=value))
             elif key in MP3Track.TranslateTextField:
-                tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=MP3Track.TranslateTextField[key], text=value[0]))
+                tags.add(mutagen.id3.TXXX(encoding=MP3Track.id3encoding, desc=MP3Track.TranslateTextField[key], text=value))
             elif key == "discnumber":
-                tags.add(mutagen.id3.TPOS(encoding=0, text=value[0]+"/"+self.processed_data["totaldiscs"][0]))
+                tags.add(mutagen.id3.TPOS(encoding=0, text=value+"/"+self.processed_data["totaldiscs"]))
             elif key == "tracknumber":
-                tags.add(mutagen.id3.TRCK(encoding=0, text=value[0]+"/"+self.processed_data["totaltracks"][0]))
+                tags.add(mutagen.id3.TRCK(encoding=0, text=value+"/"+self.processed_data["totaltracks"]))
             elif key == "musicbrainz_trackid":
-                tags.add(mutagen.id3.UFID(owner='http://musicbrainz.org', data=value[0]))
+                tags.add(mutagen.id3.UFID(owner='http://musicbrainz.org', data=value))
 
         if self.release.art != None:
             self.file.delall("APIC")
@@ -363,7 +365,7 @@ class MP3Track(Track):
         elif options["id3version"] == "2.4":
             self.file.update_to_v24()
 
-        utils.safeprint(u"Updating \"{}\" by {}".format(self.file[MP3Track.TranslationTable["title"]].text[0],self.file[MP3Track.TranslationTable["artist"]].text[0]))
+        utils.safeprint(u"  {}".format(self.file[MP3Track.TranslationTable["title"]].text[0]))
 
     def PostSave(self,options):
         if options["remove-ape"]:
@@ -394,8 +396,8 @@ class FLACTrack(Track):
 
         tags = {}
 
-        for key,value in self.processed_data.items():
-            tags[key.upper().encode("utf-8")] = value
+        for key in self.processed_data.keys():
+            tags[key.upper().encode("utf-8")] = self.processed_data.getall(key)
 
         cover_art = self.release.art
 
@@ -413,7 +415,7 @@ class FLACTrack(Track):
 
         self.file.update(tags)
 
-        utils.safeprint(u"Updating \"{}\" by {}".format(self.file[u"title"][0],self.file["artist"][0]))
+        utils.safeprint(u"  {}".format(self.file[u"title"][0]))
 
 class OggTrack(Track):
 
@@ -440,8 +442,8 @@ class OggTrack(Track):
 
         tags = {}
 
-        for key,value in self.processed_data.items():
-            tags[key.upper().encode("utf-8")] = value
+        for key in self.processed_data.keys():
+            tags[key.upper().encode("utf-8")] = self.processed_data.getall(key)
 
         cover_art = self.release.art
 
@@ -462,7 +464,7 @@ class OggTrack(Track):
 
         self.file.update(tags)
 
-        utils.safeprint(u"Updating \"{}\" by {}".format(self.file[u"title"][0],self.file["artist"][0]))
+        utils.safeprint(u"  {}".format(self.file[u"title"][0]))
 
 _track_metadata_processors = []
 

@@ -25,8 +25,6 @@ import utils
 from inspect import getargspec
 import unicodedata
 
-MULTI_VALUED_JOINER = '; '
-
 class ScriptError(Exception): pass
 class ParseError(ScriptError): pass
 class EndOfFile(ParseError): pass
@@ -52,13 +50,9 @@ class ScriptVariable(object):
         if name.startswith(u"_"):
             name = u"~" + name[1:]
 
-        values = state.context.get(name, None)
+        values = state.context.get(name, u"")
 
-        if values is not None:
-            return utils.sanitize_filename(MULTI_VALUED_JOINER.join(values))
-        else:
-            return u""
-
+        return utils.sanitize_filename(values)
 
 class ScriptFunction(object):
 
