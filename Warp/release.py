@@ -14,7 +14,6 @@ class Release:
     num_loaded = 0
 
     MetadataTags = {
-        "artist-credit-phrase":"albumartist",
         "asin":"asin",
         "title":"album",
         "date":"date",
@@ -40,7 +39,7 @@ class Release:
             self.id = id_
 
 
-    def Fetch(self):
+    def Fetch(self, options):
         if not self.valid:
             return
 
@@ -58,7 +57,7 @@ class Release:
             self.data = None
             return
 
-        self.__ProcessData()
+        self.__ProcessData(options)
 
         #Get cover art for release - no CA if this fails
         try:
@@ -76,21 +75,29 @@ class Release:
         self.fetched = True
         return self.id
 
-    def __ProcessData(self):
+    def __ProcessData(self, options):
         for key,value in self.data.items():
             if key in self.MetadataTags:
                 self.processed_data.add(self.MetadataTags[key],value)
             elif key == "artist-credit":
                 i = 0
-                aartist_sort_name = ""
+                aartist_sort_name = u""
+                aartist_credit = u""
                 for c in value:
                     if i == 0: #artist
+                        if options["use_standard_artist_names"] or ("name" not in c):
+                            aartist_credit += c["artist"]["name"]
+                        else:
+                            aartist_credit += c["name"]
+                            
                         aartist_sort_name += c["artist"]["sort-name"]
                         self.processed_data.add("musicbrainz_albumartistid",c["artist"]["id"])
                     else: #join phrase
                         aartist_sort_name += c
+                        aartist_credit += c
                     i ^= 1
                 self.processed_data.add("albumartistsort",aartist_sort_name)
+                self.processed_data.add("albumartist",aartist_credit)
             elif key == "status":
                 self.processed_data.add("releasestatus",value.lower())
             elif key == "release-group":

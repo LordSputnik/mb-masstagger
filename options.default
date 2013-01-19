@@ -3,10 +3,10 @@ max_fetch_attemps="3"
 
 -----------
 
-rename_files=yes
+rename_files=no
 rename_format="$if2(%albumartist%,%artist%)/%album%/$if($gt(%totaldiscs%,1),%discnumber%-,)$num(%tracknumber%,2).$if(%compilation%, %artist% -,) %title%"
 
-move_files=yes
+move_files=no
 library_folder=""
 
 ascii_filenames=no
@@ -15,6 +15,7 @@ delete_empty_dirs=yes
 
 -----------
 
+use_standard_artist_names=yes
 clear-tags=no
 remove-ape=yes
 id3version="2.3"

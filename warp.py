@@ -52,7 +52,7 @@ ValidFileTypes = [
 def PrintHeader():
     Warp.utils.safeprint( u"""
 ----------------------------------------------------
-| MusicBrainz Warp - 0.1                           |
+| MusicBrainz Warp - 0.2                           |
 | Created by Ben Ockmore AKA LordSputnik, (C) 2012 |
 ----------------------------------------------------
 
@@ -74,7 +74,7 @@ def FetchNextRelease():
         if not result.valid:
             return None
 
-        result.Fetch()
+        result.Fetch(options)
 
         if result.fetched:
             new_id = result.processed_data["musicbrainz_albumid"][0]
@@ -149,16 +149,18 @@ PrintHeader()
 Warp.plugin.LoadPlugins()
 
 ws.set_rate_limit() #Disable the default rate limiting, as I do my own, and don't know whether this is blocking/non-blocking.
-ws.set_useragent("mb-masstagger-py","0.1","ben.sput@gmail.com")
+ws.set_useragent("mb-masstagger-py","0.2","ben.sput@gmail.com")
 
 if os.path.exists("./options"):
     ReadOptions("./options")
 elif os.path.exists("./options.default"):
     ReadOptions("./options.default")
 
-#result = ws.get_release_by_id("6ad1068f-2f51-4079-9b44-25e0734f97ff",["artist-credits","recordings","labels","release-groups","media"])["release"]
-#print json.dumps(result, sort_keys=True, indent=4)
+#result = ws.get_release_by_id("dee5c657-7960-4a3c-a01e-66865ba24320",["artist-credits","recordings","labels","release-groups","media"])["release"]
+#Warp.utils.safeprint( json.dumps(result, sort_keys=True, indent=4, ensure_ascii = False) )
 last_fetch_time = 0
+
+#raise SystemError
 
 if os.path.isdir(options["library_folder"]):
     options["library_folder"] = os.path.realpath(options["library_folder"])
@@ -181,6 +183,8 @@ while num_completed_releases != last_num_completed_releases:
 
     last_num_completed_releases = len(albums)
     num_passes += 1
+    
+    Warp.utils.safeprint( u"Starting Pass #{}".format(num_passes) )
 
     for dirname, dirnames, filenames in os.walk(options["library_folder"]):
         if "warp-ignore" in filenames:
@@ -263,7 +267,7 @@ while num_completed_releases != last_num_completed_releases:
         if fetched_release != None:
             SyncMetadata(fetched_release)
             fetched_release.Close()
-            Warp.utils.safeprint( u"\nPass {}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, Warp.track.Track.num_loaded, Warp.track.Track.num_processed, num_total_songs) )
+            Warp.utils.safeprint( u"\nPass #{}: {} songs remaining to process and {}/{} processed.\n".format(num_passes, Warp.track.Track.num_loaded, Warp.track.Track.num_processed, num_total_songs) )
 
 
     num_completed_releases = len(albums)

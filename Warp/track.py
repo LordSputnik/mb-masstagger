@@ -18,7 +18,6 @@ class Track:
     num_processed = 0
 
     MetadataTags = {
-        "artist-credit-phrase":"artist",
         "title":"title",
         "id":"musicbrainz_trackid"
     }
@@ -174,7 +173,7 @@ class Track:
     def PostSave(self,options):
         return
 
-    def _ProcessData(self):
+    def _ProcessData(self, options):
         if self.release is None:
             utils.safeprint( "ERROR: Release is not set!" )
             self.processed_data = None
@@ -221,15 +220,23 @@ class Track:
 
             elif key == "artist-credit":
                 i = 0
-                artist_sort_name = ""
+                artist_sort_name = u""
+                artist_credit = u""
                 for c in value:
                     if i == 0: #artist
+                        if options["use_standard_artist_names"] or ("name" not in c):
+                            artist_credit += c["artist"]["name"]
+                        else:
+                            artist_credit += c["name"]
+                            
                         artist_sort_name += c["artist"]["sort-name"]
                         self.processed_data.add("musicbrainz_artistid",c["artist"]["id"])
                     else: #join phrase
                         artist_sort_name += c
+                        artist_credit += c
                     i ^= 1
                 self.processed_data.add("artistsort",artist_sort_name)
+                self.processed_data.add("artist",artist_credit)
         
         run_track_metadata_processors(None,self.processed_data,None,recording)
         return
@@ -327,7 +334,7 @@ class MP3Track(Track):
             self.file.save(v1=0, v2=4)
 
     def Sync(self,options):
-        self._ProcessData()
+        self._ProcessData(options)
 
         if self.processed_data == None:
             return
@@ -389,7 +396,7 @@ class FLACTrack(Track):
         self.file.save()
 
     def Sync(self,options):
-        self._ProcessData()
+        self._ProcessData(options)
 
         if self.processed_data == None:
             return
@@ -435,7 +442,7 @@ class OggTrack(Track):
         self.file.save()
 
     def Sync(self,options):
-        self._ProcessData()
+        self._ProcessData(options)
 
         if self.processed_data == None:
             return
