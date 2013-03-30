@@ -7,6 +7,7 @@ import musicbrainzngs as ws
 import track
 import utils
 import metadata
+import socket
 
 num_releases = 0
 
@@ -65,7 +66,7 @@ class Release:
         except urllib2.HTTPError:
             utils.safeprint( u"No cover art in CAA for \"{}\".".format(self.processed_data["album"]) )
             self.art = None
-        except urllib2.URLError:
+        except (urllib2.URLError, socket.timeout):
             utils.safeprint( u"Connection Error!" )
             self.art = None
         else:
