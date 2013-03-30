@@ -239,14 +239,14 @@ class Track:
             self.processed_data = None
             return
 
-        release_data = self.release.data
-        recording = None
+        # Copy the general release metadata into the track-specific metadata
         self.processed_data.copy( self.release.processed_data )
 
         # Get the recording info for the song.
         self._FindRecordingData()
 
         if self.errors:
+            utils.safeprint( "ERROR: Couldn't identify track on release!" )
             self.processed_data = None
             return
 
@@ -257,11 +257,6 @@ class Track:
 
         if "format" in self.matched_medium_track[0]:
             self.processed_data.add( "media", unicode( self.matched_medium_track[0]["format"], "ascii" ) )
-
-        if recording is None:  # Couldn't find the recording - we can't do anything (except maybe look for recording id).
-            utils.safeprint( "ERROR: Couldn't identify recording in medium!" )
-            self.processed_data = None
-            return
 
         for key, value in recording.items():
 
